@@ -420,8 +420,6 @@ export default function NoteApp() {
   const [showAI, setShowAI] = useState(false)
   const [aiResult, setAiResult] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [apiKey, setApiKey] = useState('')
-  const [apiKeyInput, setApiKeyInput] = useState('')
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -430,11 +428,6 @@ export default function NoteApp() {
   const sumRef = useRef<HTMLTextAreaElement>(null)
 
   const activeNote = notes.find(n => n.id === activeId) ?? null
-
-  // ── Load API key ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    try { const k = localStorage.getItem('ctx-anthropic-key'); if (k) setApiKey(k) } catch {}
-  }, [])
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -667,14 +660,12 @@ export default function NoteApp() {
 
   async function runAIExplain() {
     if (!activeNote) return
-    const key = apiKey.trim()
-    if (!key) return
     setAiLoading(true)
     setAiResult('')
     try {
       const res = await fetch('/api/explain', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ noteText: buildNoteText(activeNote) }),
       })
       if (!res.ok) { setAiResult('エラーが発生しました。APIキーを確認してください。'); setAiLoading(false); return }
@@ -1144,67 +1135,28 @@ export default function NoteApp() {
               <button onClick={() => setShowAI(false)} style={{ background: 'transparent', border: 'none', color: 'var(--fg3)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
             </div>
 
-            {!apiKey ? (
-              /* API key setup */
-              <div className="p-5 flex flex-col gap-3">
-                <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.7 }}>
-                  Anthropic の API キーを入力してください。キーはこのデバイスのみに保存されます。
+            <div className="flex flex-col flex-1 overflow-hidden min-h-0 gap-3 p-4">
+              {!aiResult && !aiLoading && (
+                <div style={{ fontSize: 13, color: 'var(--fg2)', textAlign: 'center', padding: '20px 0' }}>
+                  このノートをClaudeが解説します
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--fg3)' }}>
-                  取得: <span style={{ color: 'var(--acc)', fontFamily: 'IBM Plex Mono, monospace' }}>console.anthropic.com → API Keys</span>
+              )}
+              {(aiResult || aiLoading) && (
+                <div className="flex-1 overflow-y-auto rounded-md p-4 text-[13px] leading-[1.8]"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--edge)', fontFamily: 'inherit', color: 'var(--fg)', whiteSpace: 'pre-wrap' }}>
+                  {aiResult}
+                  {aiLoading && <span style={{ opacity: 0.5 }}>▋</span>}
                 </div>
-                <input
-                  type="password"
-                  className="outline-none rounded px-3 py-2 text-[13px]"
-                  style={{ background: 'var(--bg)', border: '1px solid var(--edge)', color: 'var(--fg)', fontFamily: 'IBM Plex Mono, monospace' }}
-                  placeholder="sk-ant-..."
-                  value={apiKeyInput}
-                  onChange={e => setApiKeyInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      const k = apiKeyInput.trim()
-                      if (k) { setApiKey(k); try { localStorage.setItem('ctx-anthropic-key', k) } catch {} }
-                    }
-                  }}
-                />
+              )}
+              <div className="flex justify-end flex-shrink-0">
                 <button
-                  className="self-end px-4 py-1.5 rounded-md text-[13px] cursor-pointer"
-                  style={{ background: 'var(--acc-dim)', border: '1px solid var(--acc)', color: 'var(--acc)' }}
-                  onClick={() => {
-                    const k = apiKeyInput.trim()
-                    if (k) { setApiKey(k); try { localStorage.setItem('ctx-anthropic-key', k) } catch {} }
-                  }}
-                >保存して続ける</button>
+                  className="px-5 py-2 rounded-md text-[13px] cursor-pointer font-bold"
+                  style={{ background: aiLoading ? 'var(--edge)' : 'var(--acc-dim)', border: '1px solid var(--acc)', color: aiLoading ? 'var(--fg3)' : 'var(--acc)' }}
+                  disabled={aiLoading}
+                  onClick={runAIExplain}
+                >{aiLoading ? '解説中...' : aiResult ? '再解説する' : '解説してもらう'}</button>
               </div>
-            ) : (
-              /* AI result */
-              <div className="flex flex-col flex-1 overflow-hidden min-h-0 gap-3 p-4">
-                {!aiResult && !aiLoading && (
-                  <div style={{ fontSize: 13, color: 'var(--fg2)', textAlign: 'center', padding: '20px 0' }}>
-                    このノートをClaudeに解説してもらいます
-                  </div>
-                )}
-                {(aiResult || aiLoading) && (
-                  <div className="flex-1 overflow-y-auto rounded-md p-4 text-[13px] leading-[1.8]"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--edge)', fontFamily: 'inherit', color: 'var(--fg)', whiteSpace: 'pre-wrap' }}>
-                    {aiResult}
-                    {aiLoading && <span style={{ opacity: 0.5, animation: 'pulse 1s infinite' }}>▋</span>}
-                  </div>
-                )}
-                <div className="flex gap-2 justify-between items-center flex-shrink-0">
-                  <button
-                    style={{ background: 'transparent', border: 'none', color: 'var(--fg3)', cursor: 'pointer', fontSize: 11 }}
-                    onClick={() => { setApiKey(''); setApiKeyInput(''); try { localStorage.removeItem('ctx-anthropic-key') } catch {} }}
-                  >APIキーを変更</button>
-                  <button
-                    className="px-4 py-1.5 rounded-md text-[13px] cursor-pointer"
-                    style={{ background: aiLoading ? 'var(--edge)' : 'var(--acc-dim)', border: '1px solid var(--acc)', color: aiLoading ? 'var(--fg3)' : 'var(--acc)' }}
-                    disabled={aiLoading}
-                    onClick={runAIExplain}
-                  >{aiLoading ? '解説中...' : aiResult ? '再解説' : '解説してもらう'}</button>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}

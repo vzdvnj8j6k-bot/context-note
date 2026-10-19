@@ -4,8 +4,8 @@ import Anthropic from '@anthropic-ai/sdk'
 export const runtime = 'edge'
 
 export async function POST(req: NextRequest) {
-  const apiKey = req.headers.get('authorization')?.replace('Bearer ', '')
-  if (!apiKey) return new Response('API key required', { status: 401 })
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return new Response('AI機能が設定されていません', { status: 503 })
 
   const { noteText } = await req.json()
   if (!noteText) return new Response('noteText required', { status: 400 })
