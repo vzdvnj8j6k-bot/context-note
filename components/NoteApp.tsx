@@ -63,6 +63,7 @@ function BlockEditor({
       id: el.dataset.id!,
       type: (el.dataset.type as BlockType) || 'normal',
       content: textOf(el),
+      level: parseInt(el.dataset.level ?? '0') || 0,
     }))
   }
 
@@ -108,6 +109,7 @@ function BlockEditor({
     div.spellcheck = true
     div.dataset.id = block.id
     div.dataset.type = block.type
+    div.dataset.level = String(block.level ?? 0)
     div.dataset.ph = '入力 または / でブロック種類を選ぶ'
     div.appendChild(document.createTextNode(block.content))
 
@@ -217,12 +219,29 @@ function BlockEditor({
         selectSlashCmd(SLASH_CMDS[slashMenu.selectedIdx].prefix)
         return
       }
+      // Number keys 1-6 for quick selection
+      const numIdx = ['1','2','3','4','5','6'].indexOf(e.key)
+      if (numIdx >= 0) {
+        e.preventDefault()
+        selectSlashCmd(SLASH_CMDS[numIdx].prefix)
+        return
+      }
     }
 
     if (e.key === 'Tab') {
       e.preventDefault()
-      if (e.shiftKey) tabPrev?.()
-      else tabNext?.()
+      const text = textOf(target)
+      if (!text) {
+        // Empty block: switch panel
+        if (e.shiftKey) tabPrev?.()
+        else tabNext?.()
+      } else {
+        // Non-empty block: indent / outdent
+        const currentLevel = parseInt(target.dataset.level ?? '0') || 0
+        const newLevel = e.shiftKey ? Math.max(0, currentLevel - 1) : Math.min(3, currentLevel + 1)
+        target.dataset.level = String(newLevel)
+        onUpdate(readBlocks())
+      }
       return
     }
 
@@ -364,7 +383,8 @@ function BlockEditor({
                 borderLeft: `3px solid ${i === slashMenu.selectedIdx ? 'var(--acc)' : 'transparent'}`,
               }}
             >
-              <span style={{ color: cmd.color, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, width: 30, flexShrink: 0 }}>{cmd.prefix.trim()}</span>
+              <span style={{ color: 'var(--fg3)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, width: 14, flexShrink: 0 }}>{i + 1}</span>
+              <span style={{ color: cmd.color, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, width: 28, flexShrink: 0 }}>{cmd.prefix.trim()}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>{cmd.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--fg3)', marginTop: 1 }}>{cmd.hint}</div>
@@ -797,7 +817,7 @@ export default function NoteApp() {
       {/* Status bar */}
       <div className="flex items-center gap-3 flex-shrink-0 px-4 py-1 overflow-x-auto whitespace-nowrap"
         style={{ background: 'var(--deck)', borderTop: '1px solid rgba(255,255,255,.04)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(255,255,255,.35)' }}>
-        {[['Tab', '次のパネル'], ['Ctrl+1/2/3', '直接移動'], ['Ctrl+R', '復習'], ['Ctrl+S', '保存'], ['Ctrl+/', 'ヘルプ']].map(([k, v]) => (
+        {[['Tab', 'インデント'], ['Shift+Tab', 'アウトデント'], ['Ctrl+1/2/3', 'パネル移動'], ['Ctrl+R', '復習'], ['Ctrl+/', 'ヘルプ']].map(([k, v]) => (
           <span key={k} className="flex items-center gap-1">
             <kbd style={{ background: 'rgba(255,255,255,.09)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 3, padding: '0 4px', fontSize: 9, color: 'rgba(255,255,255,.6)' }}>{k}</kbd>
             {v}
@@ -816,9 +836,9 @@ export default function NoteApp() {
             onClick={e => e.stopPropagation()}>
             <h2 className="text-[15px] font-bold mb-4">⌨ キーボードショートカット</h2>
             {[
-              ['パネル移動', [['Tab', '次のパネルへ（ノート→まとめ→キュー）'], ['Shift+Tab', '前のパネルへ'], ['Ctrl+1', 'キュー欄'], ['Ctrl+2', 'ノート欄'], ['Ctrl+3', 'まとめ欄']]],
+              ['パネル移動', [['Ctrl+1', 'キュー欄'], ['Ctrl+2', 'ノート欄'], ['Ctrl+3', 'まとめ欄'], ['空行でTab', '次のパネルへ移動'], ['空行でShift+Tab', '前のパネルへ移動']]],
               ['アプリ操作', [['Ctrl+R', '復習モード（重要ブロックをマスク）'], ['Ctrl+S', '手動保存'], ['Ctrl+N', '新規ノート'], ['Ctrl+B', 'サイドバー開閉'], ['Ctrl+/', 'ヘルプ'], ['Escape', '閉じる/終了']]],
-              ['ブロック入力', [['/', '行頭で入力 → ブロック種類ピッカーを開く'], ['↑↓ + Enter', 'ピッカーで選択・確定'], ['> テキスト', '重要・定義（復習マスク対象）'], ['? テキスト', '疑問点'], ['! テキスト', '試験に出る'], ['=> テキスト', '因果関係'], ['~ テキスト', '感想・リアクション'], ['- テキスト', '通常ノート']]],
+              ['ブロック入力・構造', [['/', '行頭で入力 → ブロック種類ピッカー'], ['1〜6キー', 'ピッカー開中に種類を素早く選ぶ'], ['Tab', 'ブロックをインデント（段落下げ）'], ['Shift+Tab', 'インデントを戻す'], ['> テキスト', '重要・定義（復習マスク対象）'], ['? テキスト', '疑問点'], ['! テキスト', '試験に出る'], ['=> テキスト', '因果関係'], ['~ テキスト', '感想・リアクション']]],
             ].map(([section, rows]) => (
               <div key={section as string} className="mb-4">
                 <div style={{ color: 'var(--fg3)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>{section as string}</div>

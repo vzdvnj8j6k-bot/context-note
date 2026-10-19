@@ -57,8 +57,9 @@ body {
 
 .block-badge {
   position: absolute; right: 6px; top: 4px;
-  font-size: 9px; opacity: 0.5; pointer-events: none;
+  font-size: 9px; opacity: 0.8; pointer-events: none;
   font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700; letter-spacing: .03em;
 }
 .block-line[data-type="important"] .block-badge { color: var(--c-imp); }
 .block-line[data-type="question"]  .block-badge { color: var(--c-q); }
@@ -96,6 +97,22 @@ body {
 }
 .block-line.masked .mask-cover {
   display: flex;
+}
+
+/* Block indentation levels with guide lines */
+.block-line[data-level="1"] { margin-left: 22px; }
+.block-line[data-level="2"] { margin-left: 44px; }
+.block-line[data-level="3"] { margin-left: 66px; }
+
+.block-line[data-level="1"]::before,
+.block-line[data-level="2"]::before,
+.block-line[data-level="3"]::before {
+  content: '';
+  position: absolute;
+  left: -14px; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--edge);
+  border-radius: 1px;
 }
 
 /* Focus ring on panels */

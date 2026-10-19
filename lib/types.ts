@@ -4,6 +4,7 @@ export interface Block {
   id: string
   type: BlockType
   content: string
+  level?: number
 }
 
 export interface Note {
