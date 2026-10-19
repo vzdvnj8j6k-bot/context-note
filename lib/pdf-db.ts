@@ -1,5 +1,5 @@
-import { v4 as uuidv4 } from 'uuid'
-import { getPdfSupabaseClient } from './pdf-supabase'
+﻿import { v4 as uuidv4 } from 'uuid'
+import { supabase } from './supabase'
 import { CollabLink, Document, EraserMark, PageAnnotations, ShareLink, Stroke, TextAnnotation } from '@/types/pdf'
 
 // ==================== Auth ====================
@@ -9,19 +9,19 @@ export async function ensureAnonymousAuth() {
 }
 
 export async function getCurrentUserId(): Promise<string | null> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data: { user } } = await sb.auth.getUser()
   return user?.id ?? null
 }
 
 export async function getSession() {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data: { session } } = await sb.auth.getSession()
   return session
 }
 
 export async function signInWithGoogle() {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -32,13 +32,13 @@ export async function signInWithGoogle() {
 }
 
 export async function signOut() {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { error } = await sb.auth.signOut()
   if (error) throw error
 }
 
 export async function saveLastSession(documentId: string, title: string, pageNumber: number) {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   await sb.auth.updateUser({
     data: {
       last_pdf_session: {
@@ -52,7 +52,7 @@ export async function saveLastSession(documentId: string, title: string, pageNum
 }
 
 export async function getLastSession(): Promise<{ documentId: string; title: string; pageNumber: number; savedAt: string } | null> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data: { user } } = await sb.auth.getUser()
   return user?.user_metadata?.last_pdf_session ?? null
 }
@@ -62,7 +62,7 @@ export async function getLastSession(): Promise<{ documentId: string; title: str
 export async function uploadDocument(file: File, title: string): Promise<Document> {
   const userId = await getCurrentUserId()
   if (!userId) throw new Error('Not authenticated')
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
 
   const fileName = `${userId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
   const { error: uploadError } = await sb.storage
@@ -84,7 +84,7 @@ export async function uploadDocument(file: File, title: string): Promise<Documen
 export async function getDocuments(): Promise<Document[]> {
   const userId = await getCurrentUserId()
   if (!userId) return []
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
 
   const { data, error } = await sb
     .from('documents')
@@ -97,7 +97,7 @@ export async function getDocuments(): Promise<Document[]> {
 }
 
 export async function getDocument(id: string): Promise<Document | null> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data, error } = await sb
     .from('documents')
     .select('*')
@@ -109,21 +109,21 @@ export async function getDocument(id: string): Promise<Document | null> {
 }
 
 export async function updateDocumentPages(id: string, totalPages: number) {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   await sb.from('documents').update({ total_pages: totalPages }).eq('id', id)
 }
 
 export async function deleteDocument(id: string) {
   const doc = await getDocument(id)
   if (!doc) return
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   await sb.storage.from('pdfs').remove([doc.pdf_path])
   const { error } = await sb.from('documents').delete().eq('id', id)
   if (error) throw error
 }
 
 export function getPdfUrl(pdfPath: string): string {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data } = sb.storage.from('pdfs').getPublicUrl(pdfPath)
   return data.publicUrl
 }
@@ -131,7 +131,7 @@ export function getPdfUrl(pdfPath: string): string {
 // ==================== Annotations ====================
 
 export async function getAnnotations(documentId: string, pageNumber: number): Promise<PageAnnotations> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data, error } = await sb
     .from('annotations')
     .select('strokes')
@@ -149,7 +149,7 @@ export async function saveAnnotations(
   pageNumber: number,
   annotations: PageAnnotations
 ) {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { error } = await sb
     .from('annotations')
     .upsert(
@@ -169,7 +169,7 @@ export async function saveAnnotations(
 }
 
 export async function getAllAnnotations(documentId: string): Promise<Map<number, PageAnnotations>> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data, error } = await sb
     .from('annotations')
     .select('page_number, strokes')
@@ -191,7 +191,7 @@ export async function getAllAnnotations(documentId: string): Promise<Map<number,
 // ==================== Share Links ====================
 
 export async function createShareLink(documentId: string): Promise<ShareLink> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
 
   const { data: existing } = await sb
     .from('share_links')
@@ -215,7 +215,7 @@ export async function createShareLink(documentId: string): Promise<ShareLink> {
 // ==================== Collab Links ====================
 
 export async function createCollabLink(documentId: string): Promise<CollabLink> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
 
   const { data: existing } = await sb
     .from('collab_links')
@@ -237,12 +237,12 @@ export async function createCollabLink(documentId: string): Promise<CollabLink> 
 }
 
 export async function deleteCollabLink(documentId: string): Promise<void> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   await sb.from('collab_links').delete().eq('document_id', documentId)
 }
 
 export async function getCollabLink(documentId: string): Promise<CollabLink | null> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data } = await sb
     .from('collab_links')
     .select('*')
@@ -252,7 +252,7 @@ export async function getCollabLink(documentId: string): Promise<CollabLink | nu
 }
 
 export async function getDocumentByCollabToken(token: string): Promise<{ document: Document; annotations: Map<number, PageAnnotations> } | null> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data: link } = await sb
     .from('collab_links')
     .select('document_id')
@@ -274,7 +274,7 @@ export async function getDocumentByCollabToken(token: string): Promise<{ documen
 }
 
 export async function getDocumentByToken(token: string): Promise<{ document: Document; annotations: Map<number, PageAnnotations> } | null> {
-  const sb = getPdfSupabaseClient()
+  const sb = supabase
   const { data: shareLink, error: slError } = await sb
     .from('share_links')
     .select('document_id')

@@ -1,11 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import Toolbar from '@/components/pdf/Toolbar'
 import { EraserMark, PageAnnotations, Point, Stroke, TextAnnotation, Tool } from '@/types/pdf'
 import { getAllAnnotations, saveAnnotations, updateDocumentPages } from '@/lib/pdf-db'
-import { getPdfSupabaseClient } from '@/lib/pdf-supabase'
+import { supabase } from '@/lib/supabase'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 let pdfjsLib: typeof import('pdfjs-dist') | null = null
@@ -19,7 +19,7 @@ function darkenHex(hex: string, factor = 0.65): string {
   return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`
 }
 
-// Pen cursor: pencil tilted ~45°, body color matches selected color
+// Pen cursor: pencil tilted ~45ﾂｰ, body color matches selected color
 function makePenCursor(color: string): string {
   const dark = darkenHex(color)
   const svg = [
@@ -38,7 +38,7 @@ function makePenCursor(color: string): string {
     : 'crosshair'
 }
 
-// Highlighter cursor: thick marker tilted ~45°, body color matches selected color
+// Highlighter cursor: thick marker tilted ~45ﾂｰ, body color matches selected color
 function makeHighlighterCursor(color: string): string {
   const dark = darkenHex(color)
   const svg = [
@@ -239,7 +239,7 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
 
   useEffect(() => {
     if (readonly) return
-    const sb = getPdfSupabaseClient()
+    const sb = supabase
     const channel = sb.channel(`doc-${documentId}`, { config: { presence: { key: clientId.current } } })
       .on('broadcast', { event: 'annotation-update' }, ({ payload }: { payload: { clientId: string; pageNumber: number; data: PageAnnotations } }) => {
         if (payload.clientId === clientId.current) return
@@ -309,7 +309,7 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
           if (Array.isArray((textContent as any).items)) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const items: any[] = (textContent as any).items
-            const LINE_GAP = 2  // PDF units — conservative: only group truly same-line items
+            const LINE_GAP = 2  // PDF units 窶・conservative: only group truly same-line items
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const lines: { y: number; items: any[] }[] = []
             for (const item of items) {
@@ -434,7 +434,7 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
   useEffect(() => {
     const prevTool = prevToolRef2.current
     prevToolRef2.current = tool
-    // Only redraw if switching to or from 'text' — other tool changes don't affect annotation rendering
+    // Only redraw if switching to or from 'text' 窶・other tool changes don't affect annotation rendering
     if (prevTool !== 'text' && tool !== 'text') return
     const dpr = dprRef.current
     renderedPagesRef.current.forEach(p => {
@@ -933,7 +933,7 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
 
   function handleClearPage() {
     const pageNum = currentPageRef.current
-    if (!confirm('このページの書き込みをすべて消しますか？')) return
+    if (!confirm('縺薙・繝壹・繧ｸ縺ｮ譖ｸ縺崎ｾｼ縺ｿ繧偵☆縺ｹ縺ｦ豸医＠縺ｾ縺吶°・・)) return
     const empty: PageAnnotations = { strokes: [], texts: [] }
     const page = annotationsRef.current.get(pageNum) ?? { strokes: [], texts: [] }
     const hist = history.current.get(pageNum) ?? []
@@ -957,7 +957,7 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
     setStatus('saving')
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
-    printWindow.document.write('<html><head><title>印刷</title><style>body{margin:0;background:#fff}img{display:block;width:100%;page-break-after:always;}</style></head><body>')
+    printWindow.document.write('<html><head><title>蜊ｰ蛻ｷ</title><style>body{margin:0;background:#fff}img{display:block;width:100%;page-break-after:always;}</style></head><body>')
     for (let p = 1; p <= totalPages; p++) {
       const page = await pdf.getPage(p)
       const viewport = page.getViewport({ scale: 2 })
@@ -1007,8 +1007,8 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setPageGridOpen(false)}>
           <div className="bg-white rounded-t-2xl w-full max-w-lg max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
-              <h2 className="text-base font-bold text-gray-800">ページ一覧</h2>
-              <button onClick={() => setPageGridOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+              <h2 className="text-base font-bold text-gray-800">繝壹・繧ｸ荳隕ｧ</h2>
+              <button onClick={() => setPageGridOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">ﾃ・/button>
             </div>
             <div className="overflow-y-auto p-4">
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
@@ -1033,12 +1033,12 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
             {!readonly && (
               <button onClick={() => setToolbarOpen(v => !v)}
                 className={`p-1.5 rounded-lg transition-colors ${toolbarOpen ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'}`}
-                title={toolbarOpen ? 'ツールバーを隠す' : 'ツールバーを表示'}>
+                title={toolbarOpen ? '繝・・繝ｫ繝舌・繧帝國縺・ : '繝・・繝ｫ繝舌・繧定｡ｨ遉ｺ'}>
                 <PanelIcon open={toolbarOpen} />
               </button>
             )}
             <button onClick={() => scrollToPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}
-              className="w-7 h-7 flex items-center justify-center text-sm text-gray-500 rounded-lg disabled:opacity-30 hover:bg-gray-100 hover:text-gray-800 transition-colors" title="前のページ">↑</button>
+              className="w-7 h-7 flex items-center justify-center text-sm text-gray-500 rounded-lg disabled:opacity-30 hover:bg-gray-100 hover:text-gray-800 transition-colors" title="蜑阪・繝壹・繧ｸ">竊・/button>
             {pageInputMode ? (
               <input
                 type="text"
@@ -1062,21 +1062,21 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
               <button
                 onClick={() => { setPageInputMode(true); setPageInputValue(String(currentPage)) }}
                 className="px-2 py-1 text-xs font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-blue-600 transition-colors min-w-[3.5rem] text-center"
-                title="クリックでページジャンプ">
+                title="繧ｯ繝ｪ繝・け縺ｧ繝壹・繧ｸ繧ｸ繝｣繝ｳ繝・>
                 {currentPage}<span className="text-gray-400 mx-0.5">/</span>{totalPages}
               </button>
             )}
             <button onClick={() => scrollToPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}
-              className="w-7 h-7 flex items-center justify-center text-sm text-gray-500 rounded-lg disabled:opacity-30 hover:bg-gray-100 hover:text-gray-800 transition-colors" title="次のページ">↓</button>
+              className="w-7 h-7 flex items-center justify-center text-sm text-gray-500 rounded-lg disabled:opacity-30 hover:bg-gray-100 hover:text-gray-800 transition-colors" title="谺｡縺ｮ繝壹・繧ｸ">竊・/button>
             {totalPages > 1 && (
-              <button onClick={() => setPageGridOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" title="ページ一覧">
+              <button onClick={() => setPageGridOpen(true)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" title="繝壹・繧ｸ荳隕ｧ">
                 <GridIcon />
               </button>
             )}
           </div>
 
           <div className="hidden sm:flex items-center gap-0.5 flex-shrink-0 ml-1 bg-gray-100 rounded-lg px-1 py-0.5">
-            <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} className="w-6 h-6 flex items-center justify-center text-sm text-gray-500 rounded-md hover:bg-white hover:text-gray-800 transition-colors">－</button>
+            <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} className="w-6 h-6 flex items-center justify-center text-sm text-gray-500 rounded-md hover:bg-white hover:text-gray-800 transition-colors">・・/button>
             <button
               onClick={() => {
                 const presets = [0.75, 1.0, 1.4, 2.0]
@@ -1084,33 +1084,33 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
                 setScale(next)
               }}
               className="text-xs text-gray-600 w-11 text-center hover:text-blue-600 transition-colors font-medium"
-              title="クリックでズームプリセット切替"
+              title="繧ｯ繝ｪ繝・け縺ｧ繧ｺ繝ｼ繝繝励Μ繧ｻ繝・ヨ蛻・崛"
             >
               {Math.round(scale * 100)}%
             </button>
-            <button onClick={() => setScale(s => Math.min(3, s + 0.2))} className="w-6 h-6 flex items-center justify-center text-sm text-gray-500 rounded-md hover:bg-white hover:text-gray-800 transition-colors">＋</button>
+            <button onClick={() => setScale(s => Math.min(3, s + 0.2))} className="w-6 h-6 flex items-center justify-center text-sm text-gray-500 rounded-md hover:bg-white hover:text-gray-800 transition-colors">・・/button>
           </div>
 
           <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
             {!readonly && onlineCount > 1 && (
               <span className="hidden sm:flex items-center gap-1 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />{onlineCount}人
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />{onlineCount}莠ｺ
               </span>
             )}
-            {status === 'saving' && <span className="hidden sm:inline text-xs text-gray-400">保存中</span>}
-            {status === 'saved' && <span className="hidden sm:inline text-xs text-green-500 font-medium">✓</span>}
+            {status === 'saving' && <span className="hidden sm:inline text-xs text-gray-400">菫晏ｭ倅ｸｭ</span>}
+            {status === 'saved' && <span className="hidden sm:inline text-xs text-green-500 font-medium">笨・/span>}
             {status === 'error' && <span className="text-xs text-red-500 font-medium">!</span>}
             <button onClick={() => setStudyMode(m => !m)}
-              title="暗記モード：赤い蛍光ペンで書いた文字を隠します（クリックで表示/非表示切替）"
+              title="證苓ｨ倥Δ繝ｼ繝会ｼ夊ｵ､縺・寫蜈峨・繝ｳ縺ｧ譖ｸ縺・◆譁・ｭ励ｒ髫縺励∪縺呻ｼ医け繝ｪ繝・け縺ｧ陦ｨ遉ｺ/髱櫁｡ｨ遉ｺ蛻・崛・・
               className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${studyMode ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}>
-              {studyMode ? `■ 暗記中${revealedStrokes.size > 0 ? ` (${revealedStrokes.size})` : ''}` : '暗記'}
+              {studyMode ? `笆 證苓ｨ倅ｸｭ${revealedStrokes.size > 0 ? ` (${revealedStrokes.size})` : ''}` : '證苓ｨ・}
             </button>
             <button onClick={handlePrint} className="hidden md:flex items-center gap-1 px-2.5 py-1 text-xs text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-800 transition-colors">
-              印刷
+              蜊ｰ蛻ｷ
             </button>
             <div className="md:hidden relative">
               <button onClick={e => { e.stopPropagation(); setMobileMenuOpen(v => !v) }}
-                className={`p-1.5 rounded-lg transition-colors ${mobileMenuOpen ? 'bg-gray-200 text-gray-800' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'}`} aria-label="メニュー">
+                className={`p-1.5 rounded-lg transition-colors ${mobileMenuOpen ? 'bg-gray-200 text-gray-800' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'}`} aria-label="繝｡繝九Η繝ｼ">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                   <circle cx="8" cy="3" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="8" cy="13" r="1.5" />
                 </svg>
@@ -1118,26 +1118,26 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
               {mobileMenuOpen && (
                 <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-2xl shadow-2xl z-40 w-52 overflow-hidden" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <span className="text-xs text-gray-500 font-medium">ズーム</span>
+                    <span className="text-xs text-gray-500 font-medium">繧ｺ繝ｼ繝</span>
                     <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-1 py-0.5">
-                      <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} className="w-7 h-7 text-sm text-gray-500 rounded-md hover:bg-white transition-colors">－</button>
+                      <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} className="w-7 h-7 text-sm text-gray-500 rounded-md hover:bg-white transition-colors">・・/button>
                       <span className="text-xs text-gray-600 w-10 text-center font-medium">{Math.round(scale * 100)}%</span>
-                      <button onClick={() => setScale(s => Math.min(3, s + 0.2))} className="w-7 h-7 text-sm text-gray-500 rounded-md hover:bg-white transition-colors">＋</button>
+                      <button onClick={() => setScale(s => Math.min(3, s + 0.2))} className="w-7 h-7 text-sm text-gray-500 rounded-md hover:bg-white transition-colors">・・/button>
                     </div>
                   </div>
                   <button onClick={() => { setStudyMode(m => !m); setMobileMenuOpen(false) }}
                     className={`w-full px-4 py-3 text-sm text-left flex items-center gap-3 transition-colors hover:bg-gray-50 ${studyMode ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
-                    {studyMode ? `暗記モード解除${revealedStrokes.size > 0 ? ` (${revealedStrokes.size}表示中)` : ''}` : '暗記モード'}
+                    {studyMode ? `證苓ｨ倥Δ繝ｼ繝芽ｧ｣髯､${revealedStrokes.size > 0 ? ` (${revealedStrokes.size}陦ｨ遉ｺ荳ｭ)` : ''}` : '證苓ｨ倥Δ繝ｼ繝・}
                   </button>
                   <button onClick={() => { handlePrint(); setMobileMenuOpen(false) }}
                     className="w-full px-4 py-3 text-sm text-left flex items-center gap-3 text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100">
-                    印刷
+                    蜊ｰ蛻ｷ
                   </button>
                   {!readonly && (
                     <div className="border-t border-gray-100 px-4 py-2 flex items-center gap-2 text-xs text-gray-400">
-                      {status === 'saving' && <span>保存中...</span>}
-                      {status === 'saved' && <span className="text-green-500">✓ 保存済み</span>}
-                      {status === 'error' && <span className="text-red-500">保存失敗</span>}
+                      {status === 'saving' && <span>菫晏ｭ倅ｸｭ...</span>}
+                      {status === 'saved' && <span className="text-green-500">笨・菫晏ｭ俶ｸ医∩</span>}
+                      {status === 'error' && <span className="text-red-500">菫晏ｭ伜､ｱ謨・/span>}
                     </div>
                   )}
                 </div>
@@ -1150,7 +1150,7 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
         <div ref={containerRef} className="flex-1 overflow-auto pdf-scroll-area" onClick={() => mobileMenuOpen && setMobileMenuOpen(false)}>
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="text-gray-400">PDFを読み込み中...</div>
+              <div className="text-gray-400">PDF繧定ｪｭ縺ｿ霎ｼ縺ｿ荳ｭ...</div>
             </div>
           ) : (
             <div className="flex flex-col items-center py-6 gap-6 px-8 min-w-max">
@@ -1221,7 +1221,7 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
                         border: '1.5px dashed rgba(80,100,240,0.6)',
                         lineHeight: 1.3,
                       }}
-                      placeholder="テキストを入力..."
+                      placeholder="繝・く繧ｹ繝医ｒ蜈･蜉・.."
                     />
                   )}
                 </div>
