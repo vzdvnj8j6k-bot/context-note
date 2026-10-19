@@ -462,7 +462,9 @@ export default function NoteApp() {
   const [mobPanel, setMobPanel] = useState<'notes' | 'cue' | 'summary'>('notes')
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
-  const [showWelcome, setShowWelcome] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(() => {
+    try { return !localStorage.getItem('ctx-visited') } catch { return false }
+  })
   const [syncing, setSyncing] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [mobNoteList, setMobNoteList] = useState(false)
@@ -575,10 +577,6 @@ export default function NoteApp() {
     const { notes: saved, activeId: aid } = loadStore()
     const cleaned = saved.filter(n => !isDemoNote(n))
     if (cleaned.length === 0) {
-      try {
-        const hasVisited = localStorage.getItem('ctx-visited')
-        if (!hasVisited) setShowWelcome(true)
-      } catch {}
       createFirstNote()
     } else {
       if (cleaned.length < saved.length) saveStore(cleaned, aid ?? cleaned[0].id)
@@ -836,66 +834,98 @@ ${buildNoteText(activeNote)}
 
   if (!activeNote) return null
 
-  // ── Welcome / Login screen overlay ───────────────────────────────────────
+  // ── Welcome / Login screen ────────────────────────────────────────────────
   function dismissWelcome() {
     try { localStorage.setItem('ctx-visited', '1') } catch {}
     setShowWelcome(false)
   }
 
+  const FEATURES = [
+    { icon: '📝', title: 'コーネル式ノート', desc: 'キュー・ノート・まとめの3分割で\n授業内容を構造的に整理' },
+    { icon: '🔍', title: '復習モード', desc: 'ノートを隠して記憶を確認。\n薄く透けた文字の上から書き直し' },
+    { icon: '☁', title: 'どこでも同期', desc: 'Googleアカウントでログインすると\nスマホ・PCで自動同期' },
+  ]
+
   const WelcomeScreen = showWelcome && !user ? (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 200,
-      background: 'var(--deck)',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '24px',
+      background: '#0d0d1a',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      overflowY: 'auto',
+      padding: '0 20px 40px',
     }}>
-      <div style={{ maxWidth: 400, width: '100%', textAlign: 'center' }}>
-        {/* Logo mark */}
-        <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 24 }}>
-          {['重要', '疑問', '試験'].map((t, i) => (
-            <span key={i} style={{
-              background: ['rgba(47,82,212,.2)', 'rgba(192,104,0,.2)', 'rgba(176,24,24,.2)'][i],
-              border: `1px solid ${ ['rgba(47,82,212,.5)', 'rgba(192,104,0,.5)', 'rgba(176,24,24,.5)'][i]}`,
-              color: ['#7ca8ff', '#e09040', '#e07070'][i],
-              borderRadius: 6, padding: '3px 10px', fontSize: 11, fontFamily: 'Noto Sans JP, sans-serif', fontWeight: 700,
+      {/* Gradient accent bar */}
+      <div style={{ width: '100%', height: 3, background: 'linear-gradient(90deg, #2f52d4, #7c3aed, #c06800)', flexShrink: 0 }} />
+
+      <div style={{ maxWidth: 420, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Logo area */}
+        <div style={{ marginTop: 52, marginBottom: 8, display: 'flex', gap: 5 }}>
+          {[['重要','#2f52d4'],['疑問','#c06800'],['試験','#b01818']].map(([t,c]) => (
+            <span key={t} style={{
+              background: `${c}22`, border: `1px solid ${c}88`,
+              color: c, borderRadius: 6, padding: '4px 11px',
+              fontSize: 12, fontFamily: 'Noto Sans JP, sans-serif', fontWeight: 700, letterSpacing: '.03em',
             }}>{t}</span>
           ))}
         </div>
-        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 700, fontFamily: 'Noto Sans JP, sans-serif', margin: '0 0 8px' }}>
-          コーネルノート
-        </h1>
-        <p style={{ color: 'rgba(255,255,255,.45)', fontSize: 13, fontFamily: 'Noto Sans JP, sans-serif', lineHeight: 1.7, margin: '0 0 32px' }}>
-          授業・講義を構造化して記録。<br />
-          キュー・ノート・まとめの3パートで<br />
-          復習効率を最大化します。
-        </p>
-        {/* Google login */}
+        <h1 style={{
+          color: '#fff', fontSize: 30, fontWeight: 800, margin: '10px 0 6px',
+          fontFamily: 'Noto Sans JP, sans-serif', letterSpacing: '-.01em',
+        }}>コーネルノート</h1>
+        <p style={{
+          color: 'rgba(255,255,255,.4)', fontSize: 13, margin: '0 0 36px',
+          fontFamily: 'Noto Sans JP, sans-serif', textAlign: 'center', lineHeight: 1.6,
+        }}>授業・講義を記録して、効率よく復習する</p>
+
+        {/* Feature cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginBottom: 32 }}>
+          {FEATURES.map(f => (
+            <div key={f.title} style={{
+              background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)',
+              borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 14, alignItems: 'flex-start',
+            }}>
+              <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>{f.icon}</span>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, fontFamily: 'Noto Sans JP, sans-serif', marginBottom: 3 }}>{f.title}</div>
+                <div style={{ color: 'rgba(255,255,255,.4)', fontSize: 12, fontFamily: 'Noto Sans JP, sans-serif', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{f.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Google login button */}
         <button
           onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
           style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            background: '#fff', border: 'none', borderRadius: 10,
-            padding: '13px 16px', cursor: 'pointer', marginBottom: 12,
-            fontSize: 15, fontWeight: 600, color: '#1c1c2e', fontFamily: 'Noto Sans JP, sans-serif',
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+            background: '#fff', border: 'none', borderRadius: 12,
+            padding: '15px 20px', cursor: 'pointer', marginBottom: 10,
+            fontSize: 15, fontWeight: 700, color: '#1a1a2e',
+            fontFamily: 'Noto Sans JP, sans-serif',
+            boxShadow: '0 2px 16px rgba(47,82,212,.25)',
           }}>
-          <svg width="20" height="20" viewBox="0 0 48 48">
+          <svg width="20" height="20" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
             <path fill="#EA4335" d="M24 9.5c3.5 0 6.3 1.2 8.4 3.2l6.2-6.2C34.5 3 29.6 1 24 1 14.9 1 7.2 6.4 3.8 14l7.3 5.7C12.9 13.5 18 9.5 24 9.5z"/>
             <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.4-4.8 7.1l7.4 5.7c4.3-4 6.8-9.9 6.8-16.7z"/>
             <path fill="#FBBC05" d="M11.1 28.3A14.5 14.5 0 0 1 9.5 24c0-1.5.3-3 .7-4.3L3 14C1.1 17.4 0 21.1 0 25c0 3.9 1.1 7.5 2.9 10.7l8.2-6.3z"/>
             <path fill="#34A853" d="M24 47c5.5 0 10.2-1.8 13.6-4.9l-7.4-5.7c-1.9 1.3-4.3 2.1-6.9 2.1-5.7 0-10.5-3.8-12.3-9l-8.2 6.3C7.1 42.8 15 47 24 47z"/>
           </svg>
-          Googleでログイン（無料・クロスデバイス同期）
+          Googleでログイン
         </button>
+        <p style={{ color: 'rgba(255,255,255,.22)', fontSize: 11, fontFamily: 'Noto Sans JP, sans-serif', margin: '0 0 20px', textAlign: 'center' }}>
+          無料・広告なし・複数デバイス同期
+        </p>
+
         {/* Skip */}
         <button
           onClick={dismissWelcome}
           style={{
-            background: 'transparent', border: 'none',
-            color: 'rgba(255,255,255,.35)', fontSize: 13,
-            fontFamily: 'Noto Sans JP, sans-serif', cursor: 'pointer', padding: '8px',
-            textDecoration: 'underline', textUnderlineOffset: 3,
+            background: 'transparent', border: '1px solid rgba(255,255,255,.12)',
+            borderRadius: 8, color: 'rgba(255,255,255,.4)', fontSize: 13,
+            fontFamily: 'Noto Sans JP, sans-serif', cursor: 'pointer', padding: '10px 24px',
+            width: '100%',
           }}>
-          ログインせずに始める（このデバイスのみ保存）
+          ログインせずに使う（このデバイスのみ）
         </button>
       </div>
     </div>
