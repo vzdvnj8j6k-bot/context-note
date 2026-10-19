@@ -10,11 +10,14 @@ const PREFIXES: Record<string, BlockType> = {
   '? ':  'question',
   '! ':  'exam',
   '=> ': 'cause',
+  '~ ':  'reaction',
   '- ':  'normal',
 }
 const BADGE: Partial<Record<BlockType, string>> = {
-  important: 'DEF', question: 'Q?', exam: '★', cause: '⇒',
+  important: 'DEF', question: 'Q?', exam: '★', cause: '⇒', reaction: '～',
 }
+const CHAR_WARN = 50
+const CHAR_OVER = 60
 function detectType(text: string): BlockType {
   for (const [p, t] of Object.entries(PREFIXES)) {
     if (text.startsWith(p)) return t
@@ -73,6 +76,13 @@ function BlockEditor({
     el.dataset.type = type
     const badge = el.querySelector<HTMLSpanElement>('.block-badge')
     if (badge) badge.textContent = BADGE[type] ?? ''
+    // update char count
+    const counter = el.querySelector<HTMLSpanElement>('.char-count')
+    if (counter) {
+      const len = text.length
+      counter.textContent = `${len}`
+      counter.dataset.warn = len >= CHAR_OVER ? 'over' : len >= CHAR_WARN ? 'warn' : 'ok'
+    }
   }
 
   function placeCaretEnd(el: HTMLElement) {
@@ -92,13 +102,20 @@ function BlockEditor({
     div.spellcheck = true
     div.dataset.id = block.id
     div.dataset.type = block.type
-    div.dataset.ph = '行を入力… (> 定義  ? 疑問  ! 試験  => 因果)'
+    div.dataset.ph = '行を入力… (> 定義  ? 疑問  ! 試験  => 因果  ~ 感想)'
     div.appendChild(document.createTextNode(block.content))
 
     const badge = document.createElement('span')
     badge.className = 'block-badge'
     badge.textContent = BADGE[block.type] ?? ''
     div.appendChild(badge)
+
+    const counter = document.createElement('span')
+    counter.className = 'char-count'
+    const len = block.content.length
+    counter.textContent = `${len}`
+    counter.dataset.warn = len >= CHAR_OVER ? 'over' : len >= CHAR_WARN ? 'warn' : 'ok'
+    div.appendChild(counter)
 
     // mask layer (always present, shown via CSS class)
     const mask = document.createElement('div')
@@ -295,6 +312,7 @@ export default function NoteApp() {
         { id: uid(), type: 'question',  content: '? 疑問点：行頭に「? 」でオレンジ。後でキュー欄に書き写す' },
         { id: uid(), type: 'exam',      content: '! 試験に出る：行頭に「! 」で赤。絶対覚えたい内容に' },
         { id: uid(), type: 'cause',     content: '=> 因果関係：行頭に「=> 」で緑。原因→結果の流れを表す' },
+        { id: uid(), type: 'reaction',  content: '~ 感想・リアクション：行頭に「~ 」で紫。「面白い！」「なぜ？」など思考の痕跡を残す' },
         { id: uid(), type: 'normal',    content: '' },
         { id: uid(), type: 'normal',    content: '- Enter で新しい行、Backspace で行を結合、Tab でキュー欄へ移動' },
         { id: uid(), type: 'normal',    content: '- Ctrl+R で復習モード（重要ブロックが隠れる）、Ctrl+/ でヘルプ' },
@@ -504,6 +522,7 @@ export default function NoteApp() {
           <span className="flex items-center gap-1"><span style={{ background: 'var(--c-q)',   width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>? </code>疑問</span>
           <span className="flex items-center gap-1"><span style={{ background: 'var(--c-ex)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>! </code>試験</span>
           <span className="flex items-center gap-1"><span style={{ background: 'var(--c-ca)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>=&gt; </code>因果</span>
+          <span className="flex items-center gap-1"><span style={{ background: 'var(--c-rx)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>~ </code>感想</span>
         </div>
       </div>
 
@@ -600,7 +619,7 @@ export default function NoteApp() {
               {/* Mobile action bar */}
               <div className="hidden max-[700px]:flex flex-wrap gap-1 p-2 flex-shrink-0"
                 style={{ background: 'var(--deck)', borderTop: '1px solid rgba(255,255,255,.06)' }}>
-                {([['> ', '▐ 定義', 'var(--c-imp)'], ['? ', '? 疑問', 'var(--c-q)'], ['! ', '★ 試験', 'var(--c-ex)'], ['=> ', '⇒ 因果', 'var(--c-ca)'], ['- ', '- 通常', 'rgba(255,255,255,.5)']] as [string, string, string][]).map(([p, label, col]) => (
+                {([['> ', '▐ 重要', 'var(--c-imp)'], ['? ', '? 疑問', 'var(--c-q)'], ['! ', '★ 試験', 'var(--c-ex)'], ['=> ', '⇒ 因果', 'var(--c-ca)'], ['~ ', '～ 感想', 'var(--c-rx)'], ['- ', '- 通常', 'rgba(255,255,255,.5)']] as [string, string, string][]).map(([p, label, col]) => (
                   <button key={p} onClick={() => insertPrefix(p)}
                     style={{ background: 'rgba(255,255,255,.08)', border: `1px solid ${col}`, borderRadius: 5, color: col, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, padding: '5px 10px', cursor: 'pointer' }}>
                     {label}
@@ -655,7 +674,7 @@ export default function NoteApp() {
             {[
               ['パネル移動', [['Tab', '次のパネルへ（ノート→キュー→まとめ）'], ['Shift+Tab', '前のパネルへ'], ['Ctrl+1', 'キュー欄'], ['Ctrl+2', 'ノート欄'], ['Ctrl+3', 'まとめ欄']]],
               ['アプリ操作', [['Ctrl+R', '復習モード（重要ブロックをマスク）'], ['Ctrl+S', '手動保存'], ['Ctrl+N', '新規ノート'], ['Ctrl+B', 'サイドバー開閉'], ['Ctrl+/', 'ヘルプ'], ['Escape', '閉じる/終了']]],
-              ['セマンティックプレフィックス', [['> テキスト', '重要・定義（復習マスク対象）'], ['? テキスト', '疑問点'], ['! テキスト', '試験に出る'], ['=> テキスト', '因果関係'], ['- テキスト', '通常ノート']]],
+              ['セマンティックプレフィックス', [['> テキスト', '重要・定義（復習マスク対象）'], ['? テキスト', '疑問点'], ['! テキスト', '試験に出る'], ['=> テキスト', '因果関係'], ['~ テキスト', '感想・リアクション（面白い！なぜ？など）'], ['- テキスト', '通常ノート']]],
             ].map(([section, rows]) => (
               <div key={section as string} className="mb-4">
                 <div style={{ color: 'var(--fg3)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>{section as string}</div>

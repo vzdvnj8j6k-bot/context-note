@@ -1,4 +1,4 @@
-export type BlockType = 'normal' | 'important' | 'question' | 'exam' | 'cause'
+export type BlockType = 'normal' | 'important' | 'question' | 'exam' | 'cause' | 'reaction'
 
 export interface Block {
   id: string
