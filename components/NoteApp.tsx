@@ -844,12 +844,21 @@ ${buildNoteText(activeNote)}
       updateNote({ blocks: updatedBlocks })
     }
     target.focus()
-    const range = document.createRange()
-    range.selectNodeContents(target)
-    range.collapse(false)
-    const sel = window.getSelection()!
-    sel.removeAllRanges()
-    sel.addRange(range)
+    // Place caret in the text node (not after badge/counter spans)
+    const sel = window.getSelection()
+    if (sel) {
+      const textNode = Array.from(target.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text | undefined
+      const range = document.createRange()
+      if (textNode) {
+        range.setStart(textNode, textNode.length)
+        range.collapse(true)
+      } else {
+        range.selectNodeContents(target)
+        range.collapse(false)
+      }
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
   }
 
   // ── Loading state ─────────────────────────────────────────────────────────
