@@ -134,11 +134,13 @@ function BlockEditor({
 
     const badge = document.createElement('span')
     badge.className = 'block-badge'
+    badge.setAttribute('contenteditable', 'false')
     badge.textContent = BADGE[block.type] ?? ''
     div.appendChild(badge)
 
     const counter = document.createElement('span')
     counter.className = 'char-count'
+    counter.setAttribute('contenteditable', 'false')
     const len = block.content.length
     counter.textContent = `${len}`
     counter.dataset.warn = len >= CHAR_OVER ? 'over' : len >= CHAR_WARN ? 'warn' : 'ok'
