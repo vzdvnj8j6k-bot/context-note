@@ -289,9 +289,21 @@ export default function NoteApp() {
       setNotes(saved)
       setActiveId(aid ?? saved[0].id)
     } else {
+      const demoBlocks: Block[] = [
+        { id: uid(), type: 'normal',    content: '- ここにノートを入力します（行頭に記号を付けて種類を変えられます）' },
+        { id: uid(), type: 'important', content: '> 重要・定義：行頭に「> 」で青くハイライト。復習モードでは隠れます' },
+        { id: uid(), type: 'question',  content: '? 疑問点：行頭に「? 」でオレンジ。後でキュー欄に書き写す' },
+        { id: uid(), type: 'exam',      content: '! 試験に出る：行頭に「! 」で赤。絶対覚えたい内容に' },
+        { id: uid(), type: 'cause',     content: '=> 因果関係：行頭に「=> 」で緑。原因→結果の流れを表す' },
+        { id: uid(), type: 'normal',    content: '' },
+        { id: uid(), type: 'normal',    content: '- Enter で新しい行、Backspace で行を結合、Tab でキュー欄へ移動' },
+        { id: uid(), type: 'normal',    content: '- Ctrl+R で復習モード（重要ブロックが隠れる）、Ctrl+/ でヘルプ' },
+      ]
       const first: Note = {
-        id: uid(), subject: '', topic: '', session: '', date: todayStr(),
-        cue: '', summary: '', blocks: [], created: Date.now(), updated: Date.now(),
+        id: uid(), subject: 'ContextNote', topic: '使い方ガイド', session: '第1回', date: todayStr(),
+        cue: 'キーワードや問いをここに書く\n\n例：重要なブロックとは？\n→ 復習で隠れる定義・概念',
+        summary: '講義後：全体を2〜3文で要約する。コーネル式は「ノート→キュー→まとめ」の3ゾーン構成。',
+        blocks: demoBlocks, created: Date.now(), updated: Date.now(),
       }
       setNotes([first])
       setActiveId(first.id)
