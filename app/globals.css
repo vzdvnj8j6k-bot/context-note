@@ -103,26 +103,19 @@ body {
 .char-count[data-warn="warn"] { color: #c06800; font-weight: 600; }
 .char-count[data-warn="over"] { color: #b01818; font-weight: 700; }
 
-/* Masked block in review mode */
+/* Review mode: ghost text (faint original) stays visible, user types on top */
 .block-line.masked {
-  cursor: pointer;
-  color: transparent !important;
-  user-select: none;
+  cursor: text;
 }
-.mask-cover {
-  display: none;
-  position: absolute; inset: 0; border-radius: 0 3px 3px 0;
-  align-items: center; justify-content: center;
-  background: var(--c-imp-bg);
-  border: 1px dashed var(--c-imp);
-  color: var(--c-imp);
-  font-size: 11px; font-style: italic;
-  font-family: 'IBM Plex Mono', monospace;
+/* Ghost text span — shows the original content faintly */
+.ghost-text {
+  color: rgba(28, 28, 46, 0.13);
   pointer-events: none;
+  user-select: none;
+  font-style: normal;
 }
-.block-line.masked .mask-cover {
-  display: flex;
-}
+/* Suppress the old mask-cover if any lingering in DOM */
+.mask-cover { display: none !important; }
 
 /* Block indentation levels with guide lines */
 .block-line[data-level="1"] { margin-left: 22px; }

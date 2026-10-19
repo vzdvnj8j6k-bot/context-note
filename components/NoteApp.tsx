@@ -137,10 +137,7 @@ function BlockEditor({
     counter.dataset.warn = len >= CHAR_OVER ? 'over' : len >= CHAR_WARN ? 'warn' : 'ok'
     div.appendChild(counter)
 
-    const mask = document.createElement('div')
-    mask.className = 'mask-cover'
-    mask.textContent = 'クリックで表示'
-    div.appendChild(mask)
+    // (mask-cover removed — review mode uses ghost-text overlay)
 
     return div
   }
@@ -191,14 +188,30 @@ function BlockEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocks.map(b => b.id).join(',')])
 
-  // Apply review mode masking
+  // Review mode: ghost text (faint original) + user types recall on top
   useEffect(() => {
     getBlockEls().forEach(el => {
-      if (reviewMode && el.dataset.type === 'important') {
+      if (reviewMode) {
+        if (el.dataset.reviewOrig !== undefined) return // already set up
+        const origText = textOf(el)
+        el.dataset.reviewOrig = origText
+        const ghost = document.createElement('span')
+        ghost.className = 'ghost-text'
+        ghost.setAttribute('contenteditable', 'false')
+        ghost.textContent = origText
+        el.insertBefore(ghost, el.firstChild)
+        setTextOf(el, '')
         el.classList.add('masked')
-        el.contentEditable = 'false'
+        el.contentEditable = 'true'
       } else {
         el.classList.remove('masked')
+        const ghost = el.querySelector<HTMLSpanElement>('.ghost-text')
+        const origText = el.dataset.reviewOrig
+        if (ghost) ghost.remove()
+        if (origText !== undefined) {
+          setTextOf(el, origText)
+          delete el.dataset.reviewOrig
+        }
         el.contentEditable = 'true'
       }
     })
@@ -207,6 +220,18 @@ function BlockEditor({
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const target = e.target as HTMLDivElement
     if (!target.classList.contains('block-line')) return
+
+    // In review mode: allow typing, block structural changes
+    if (reviewMode) {
+      if (e.key === 'Enter') { e.preventDefault(); return }
+      if (e.key === 'Tab')   { e.preventDefault(); return }
+      if (e.key === 'Backspace') {
+        const sel = window.getSelection()
+        const atStart = sel?.isCollapsed && sel.anchorOffset === 0
+        if (atStart && getBlockEls().indexOf(target) > 0) { e.preventDefault(); return }
+      }
+      return // skip all other custom handlers; browser default (typing) still works
+    }
 
     // Slash menu keyboard navigation
     if (slashMenu) {
@@ -302,6 +327,7 @@ function BlockEditor({
   }
 
   function handleInput(e: React.FormEvent<HTMLDivElement>) {
+    if (reviewMode) return  // typing in review mode is ephemeral practice, don't save
     const target = e.target as HTMLDivElement
     if (!target.classList.contains('block-line')) return
     const text = textOf(target)
@@ -355,11 +381,8 @@ function BlockEditor({
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     const target = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
-    if (target?.classList.contains('masked')) {
-      target.classList.remove('masked')
-      target.contentEditable = 'true'
-      e.stopPropagation()
-    }
+    if (!target) return
+    void target // used below via fallthrough
   }
 
   return (
@@ -825,6 +848,7 @@ ${buildNoteText(activeNote)}
             placeholder="第?" value={activeNote.session}
             onChange={e => updateNote({ session: e.target.value })} />
           <button className={hbtn()} onClick={newNote} title="新規ノート" style={{ fontSize: 18, lineHeight: 1, padding: '2px 8px' }}>+</button>
+          <button className={hbtn(reviewMode)} onClick={toggleReview} title="復習モード" style={{ fontSize: 12 }}>復習</button>
           <button className={hbtn(showAI)} onClick={() => { setShowAI(p => !p); setShareUrl('') }} title="AI解説" style={{ fontSize: 12 }}>AI</button>
           <button className={hbtn()} onClick={shareNote} disabled={shareLoading} title="共有" style={{ fontSize: 12 }}>
             {shareLoading ? '...' : shareUrl ? '✓' : '🔗'}
