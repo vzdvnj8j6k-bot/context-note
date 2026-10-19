@@ -380,9 +380,12 @@ function BlockEditor({
   }
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
-    const target = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
-    if (!target) return
-    void target // used below via fallthrough
+    const blockTarget = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
+    if (!blockTarget) {
+      // Tapped on empty area below blocks — focus the last block so keyboard opens
+      const els = getBlockEls()
+      if (els.length > 0) placeCaretEnd(els[els.length - 1])
+    }
   }
 
   return (
@@ -470,7 +473,6 @@ export default function NoteApp() {
   const [aiCopied, setAiCopied] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
-  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userRef = useRef<User | null>(null)
   const cueRef = useRef<HTMLDivElement>(null)
@@ -493,19 +495,6 @@ export default function NoteApp() {
       if (u) { setShowWelcome(false); setAuthMenuOpen(false) }
     })
     return () => subscription.unsubscribe()
-  }, [])
-
-  // ── Keyboard height tracking (mobile) ────────────────────────────────────
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return
-    const vv = window.visualViewport
-    const handler = () => {
-      const kbh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-      setKeyboardHeight(kbh)
-    }
-    vv.addEventListener('resize', handler)
-    vv.addEventListener('scroll', handler)
-    return () => { vv.removeEventListener('resize', handler); vv.removeEventListener('scroll', handler) }
   }, [])
 
   // ── Load ──────────────────────────────────────────────────────────────────
@@ -1191,6 +1180,36 @@ ${buildNoteText(activeNote)}
         ))}
       </div>
 
+      {/* Mobile action bar — shown below tabs when ノート panel is active */}
+      {mobPanel === 'notes' && (
+        <div className="hidden max-[700px]:flex gap-0 flex-shrink-0"
+          style={{ background: 'var(--deck)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+          {([
+            ['> ', '重要', 'var(--c-imp)', 'rgba(47,82,212,.15)', '▌'],
+            ['? ', '疑問', 'var(--c-q)', 'rgba(192,104,0,.12)', '?'],
+            ['! ', '試験', 'var(--c-ex)', 'rgba(176,24,24,.12)', '★'],
+            ['=> ', '因果', 'var(--c-ca)', 'rgba(6,132,90,.12)', '⇒'],
+            ['~ ', '感想', 'var(--c-rx)', 'rgba(124,58,237,.12)', '～'],
+            ['- ', '通常', 'rgba(255,255,255,.5)', 'rgba(255,255,255,.04)', '-'],
+          ] as [string, string, string, string, string][]).map(([p, label, col, bg, icon]) => (
+            <button key={p}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => insertPrefix(p)}
+              style={{
+                flex: 1, background: bg, border: 'none',
+                borderRight: '1px solid rgba(255,255,255,.06)',
+                borderLeft: `2px solid ${col}`,
+                color: col, fontFamily: 'Noto Sans JP, sans-serif',
+                fontSize: 11, padding: '8px 2px', cursor: 'pointer',
+                display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+              }}>
+              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, opacity: 0.7 }}>{icon}</span>
+              <span style={{ fontWeight: 700 }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Main app layout */}
       <div className="flex flex-1 overflow-hidden min-h-0">
 
@@ -1363,8 +1382,6 @@ ${buildNoteText(activeNote)}
                 tabNext={() => sumRef.current?.focus()}
                 tabPrev={() => cueRef.current?.focus()}
               />
-              {/* Spacer so content doesn't hide under the fixed mobile action bar */}
-              <div className="hidden max-[700px]:block flex-shrink-0" style={{ height: 44 }} />
             </div>
 
           </div>
@@ -1391,36 +1408,6 @@ ${buildNoteText(activeNote)}
           </div>
         </div>
       </div>
-
-      {/* Mobile fixed action bar — floats above keyboard */}
-      {mobPanel === 'notes' && (
-        <div className="hidden max-[700px]:flex gap-0"
-          style={{
-            position: 'fixed',
-            bottom: keyboardHeight,
-            left: 0, right: 0,
-            background: 'var(--deck)',
-            borderTop: '1px solid rgba(255,255,255,.08)',
-            zIndex: 20,
-            height: 44,
-          }}>
-          {([
-            ['> ', '重要', 'var(--c-imp)', 'rgba(47,82,212,.15)'],
-            ['? ', '疑問', 'var(--c-q)', 'rgba(192,104,0,.12)'],
-            ['! ', '試験', 'var(--c-ex)', 'rgba(176,24,24,.12)'],
-            ['=> ', '因果', 'var(--c-ca)', 'rgba(6,132,90,.12)'],
-            ['~ ', '感想', 'var(--c-rx)', 'rgba(124,58,237,.12)'],
-            ['- ', 'メモ', 'rgba(255,255,255,.5)', 'transparent'],
-          ] as [string, string, string, string][]).map(([p, label, col, bg]) => (
-            <button key={p}
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => insertPrefix(p)}
-              style={{ flex: 1, background: bg, border: 'none', borderRight: '1px solid rgba(255,255,255,.06)', color: col, fontFamily: 'Noto Sans JP, sans-serif', fontSize: 11, padding: '10px 2px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-              <span style={{ fontWeight: 700 }}>{label}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Status bar */}
       <div className="max-[700px]:hidden flex items-center gap-3 flex-shrink-0 px-4 py-1 overflow-x-auto whitespace-nowrap"
