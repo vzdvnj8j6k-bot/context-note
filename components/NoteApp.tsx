@@ -551,23 +551,9 @@ export default function NoteApp() {
 
   // ── Supabase helpers ──────────────────────────────────────────────────────
   function createFirstNote() {
-    const demoBlocks: Block[] = [
-      { id: uid(), type: 'normal',    content: '- 今日の講義メモ ↓ このように書いていきます' },
-      { id: uid(), type: 'important', content: '> 自然選択：環境に適した個体が生存・繁殖しやすい仕組み（ダーウィン）' },
-      { id: uid(), type: 'question',  content: '? なぜ突然変異は「ランダム」に起きるのか？DNAのどの部分が壊れる？' },
-      { id: uid(), type: 'cause',     content: '=> 突然変異 → 形質の多様性 → 自然選択 → 進化' },
-      { id: uid(), type: 'exam',      content: '! 「適者生存」は「強者生存」ではない。環境への適合度が重要' },
-      { id: uid(), type: 'reaction',  content: '~ 病気への耐性も「選択圧」なんだ！面白い。抗生物質耐性菌もこれか' },
-      { id: uid(), type: 'normal',    content: '' },
-      { id: uid(), type: 'normal',    content: '--- 書き方ガイド ---' },
-      { id: uid(), type: 'normal',    content: '- Enter で新しい行　/ でブロック種類を選ぶ　Backspace で行を結合' },
-      { id: uid(), type: 'normal',    content: '- Ctrl+R で復習モード（> の重要ブロックが隠れる）　Ctrl+/ でヘルプ' },
-    ]
     const first: Note = {
-      id: uid(), subject: '生物学', topic: '進化論と自然選択', session: '第3回', date: todayStr(),
-      cue: '重要な問い：\n\n自然選択とは何か？\n→ 環境適合度の高い個体が生き残る\n\n突然変異はなぜ起きる？',
-      summary: '自然選択は「強者」ではなく「環境に適した者」が残る仕組み。突然変異→多様性→選択→進化の流れが核心。',
-      blocks: demoBlocks, created: Date.now(), updated: Date.now(),
+      id: uid(), subject: '', topic: '', session: '', date: todayStr(),
+      cue: '', summary: '', blocks: [], created: Date.now(), updated: Date.now(),
     }
     setNotes([first])
     setActiveId(first.id)
@@ -848,6 +834,7 @@ ${buildNoteText(activeNote)}
             placeholder="第?" value={activeNote.session}
             onChange={e => updateNote({ session: e.target.value })} />
           <button className={hbtn()} onClick={newNote} title="新規ノート" style={{ fontSize: 18, lineHeight: 1, padding: '2px 8px' }}>+</button>
+          <button className={hbtn()} onClick={() => deleteNote(activeNote.id)} title="このノートを削除" style={{ fontSize: 13, color: 'rgba(176,24,24,.8)' }}>🗑</button>
           <button className={hbtn(reviewMode)} onClick={toggleReview} title="復習モード" style={{ fontSize: 12 }}>復習</button>
           <button className={hbtn(showAI)} onClick={() => { setShowAI(p => !p); setShareUrl('') }} title="AI解説" style={{ fontSize: 12 }}>AI</button>
           <button className={hbtn()} onClick={shareNote} disabled={shareLoading} title="共有" style={{ fontSize: 12 }}>
