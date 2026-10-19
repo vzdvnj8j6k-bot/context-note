@@ -863,34 +863,28 @@ export default function NoteApp() {
               <div className="flex items-center justify-between flex-shrink-0 px-3 py-1.5"
                 style={{ borderBottom: '1px solid var(--edge)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--fg3)' }}>
                 <span>キュー・問い</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      const topic = activeNote.topic || 'このテーマ'
-                      const tpl = [
-                        `【${topic}】`,
-                        '',
-                        '□ 定義・概念は何か？',
-                        '□ なぜ・どのように起きるのか？',
-                        '□ 具体的な例は？',
-                        '□ 他の概念・以前の内容との違いは？',
-                        '□ 試験で問われそうな点は？',
-                        '',
-                        '→ まとめ：',
-                      ].join('\n')
-                      updateNote({ cue: activeNote.cue ? activeNote.cue + '\n\n' + tpl : tpl })
-                      setTimeout(() => cueRef.current?.focus(), 0)
-                    }}
-                    title="コーネル式質問テンプレートを挿入"
-                    style={{ background: 'var(--acc-dim)', border: '1px solid var(--acc)', borderRadius: 4, color: 'var(--acc)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 9, padding: '1px 6px', cursor: 'pointer', letterSpacing: '.04em' }}
-                  >+ テンプレ</button>
-                  <span className="pact text-[9px] px-1 rounded border opacity-0 transition-opacity"
-                    style={{ background: 'var(--acc-dim)', borderColor: 'var(--acc)', color: 'var(--acc)' }}>ACTIVE</span>
-                </div>
+                <span className="pact text-[9px] px-1 rounded border opacity-0 transition-opacity"
+                  style={{ background: 'var(--acc-dim)', borderColor: 'var(--acc)', color: 'var(--acc)' }}>ACTIVE</span>
               </div>
+              {/* Fixed Cornell questions */}
+              <div style={{ flexShrink: 0, borderBottom: '1px solid var(--edge)', padding: '8px 12px' }}>
+                {[
+                  '定義・概念は何か？',
+                  'なぜ・どのように起きるのか？',
+                  '具体的な例は？',
+                  '他の概念・以前の内容との違いは？',
+                  '試験で問われそうな点は？',
+                ].map((q, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', padding: '5px 0', borderBottom: i < 4 ? '1px dotted var(--edge)' : 'none' }}>
+                    <span style={{ color: 'var(--acc)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, flexShrink: 0, marginTop: 1 }}>□</span>
+                    <span style={{ fontSize: 12, color: 'var(--fg2)', lineHeight: 1.6 }}>{q}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Free notes area */}
               <textarea ref={cueRef} className="flex-1 w-full resize-none outline-none p-3 text-[13px] leading-[1.85]"
                 style={{ background: 'transparent', border: 'none', fontFamily: 'IBM Plex Mono, monospace', color: 'var(--fg)', caretColor: 'var(--acc)' }}
-                placeholder={'講義後に記入\n\n「+ テンプレ」でコーネル式の\n質問テンプレートを挿入\n\nTab で「ノート」へ'}
+                placeholder={'↑ の質問への答えを\nここに書く\n\nTab で「ノート」へ'}
                 value={activeNote.cue}
                 onChange={e => updateNote({ cue: e.target.value })}
                 onKeyDown={e => {
