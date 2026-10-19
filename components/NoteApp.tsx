@@ -151,6 +151,14 @@ function BlockEditor({
     counter.dataset.warn = len >= CHAR_OVER ? 'over' : len >= CHAR_WARN ? 'warn' : 'ok'
     div.appendChild(counter)
 
+    const deleteBtn = document.createElement('button')
+    deleteBtn.className = 'block-delete'
+    deleteBtn.setAttribute('tabindex', '-1')
+    deleteBtn.setAttribute('aria-label', '削除')
+    deleteBtn.textContent = '×'
+    deleteBtn.addEventListener('mousedown', e => e.preventDefault())
+    div.appendChild(deleteBtn)
+
     return div
   }
 
@@ -394,6 +402,16 @@ function BlockEditor({
   }
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    // Delete button
+    if ((e.target as HTMLElement).classList.contains('block-delete')) {
+      const blockLine = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
+      if (blockLine) {
+        const id = blockLine.dataset.id
+        const updated = readBlocks().filter(b => b.id !== id)
+        onUpdate(updated.length > 0 ? updated : [{ id: uid(), type: 'normal', content: '' }])
+      }
+      return
+    }
     const blockLine = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
     if (!blockLine) {
       // Tapped on empty area below blocks — focus the last block so keyboard opens

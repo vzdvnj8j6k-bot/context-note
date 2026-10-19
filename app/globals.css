@@ -105,6 +105,30 @@ body {
   user-select: none;
 }
 
+/* Per-block delete button */
+.block-delete {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: none;
+  border: none;
+  color: var(--fg3);
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s;
+  padding: 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.block-line:hover .block-delete,
+.block-line:focus-within .block-delete { opacity: 1; }
+.block-delete:hover { background: var(--c-ex-bg); color: var(--c-ex); }
+
 /* Char count stays on the right */
 
 /* Character count meter */
@@ -152,10 +176,11 @@ body {
 .panel-wrap:focus-within { outline: 2px solid var(--acc); outline-offset: -2px; }
 .panel-wrap:focus-within .pact { opacity: 1 !important; }
 
-/* Mobile: larger text and compact badges */
+/* Mobile: larger text, compact badges, always-visible delete button */
 @media (max-width: 700px) {
   .block-line { font-size: 16px; }
-  .block-text { line-height: 1.7; }
+  .block-text { line-height: 1.7; padding-right: 28px; }
+  .block-delete { opacity: 1; }
   .block-line[data-type="important"],
   .block-line[data-type="question"],
   .block-line[data-type="exam"],
