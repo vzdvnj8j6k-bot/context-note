@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { deleteDocument, getDocuments, getLastSession, getSession, signInWithGoogle, signOut, uploadDocument } from '@/lib/pdf-db'
+import { deleteDocument, getDocuments, getLastSession, getSession, signOut, uploadDocument } from '@/lib/pdf-db'
+import { supabase } from '@/lib/supabase'
 import { Document } from '@/types/pdf'
 import type { Session } from '@supabase/supabase-js'
 import Link from 'next/link'
@@ -42,11 +43,12 @@ export default function PdfHomePage() {
   async function handleGoogleLogin() {
     setIsSigningIn(true)
     setError(null)
-    try {
-      await signInWithGoogle()
-    } catch (e) {
-      console.error('Login error:', e)
-      setError(e instanceof Error ? e.message : String(e))
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/pdf/auth/callback` },
+    })
+    if (error) {
+      setError(error.message)
       setIsSigningIn(false)
     }
   }
