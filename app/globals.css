@@ -17,17 +17,6 @@
   --c-ex:  #b01818; --c-ex-bg:  rgba(176,24,24,0.07);
   --c-ca:  #06845a; --c-ca-bg:  rgba(6,132,90,0.07);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e0e18; --surf: #17172a; --surf-cue: #12121f; --surf-side: #13131e;
-    --deck: #09090f; --fg: #e0e0f0; --fg2: #8080a0; --fg3: #484860; --edge: #25253a;
-    --acc: #6a8ef2; --acc-dim: rgba(106,142,242,0.13);
-    --c-imp: #6a8ef2; --c-imp-bg: rgba(106,142,242,0.09);
-    --c-q:   #f0a028; --c-q-bg:   rgba(240,160,40,0.08);
-    --c-ex:  #e65050; --c-ex-bg:  rgba(230,80,80,0.08);
-    --c-ca:  #1ebe82; --c-ca-bg:  rgba(30,190,130,0.08);
-  }
-}
 
 html, body { height: 100%; margin: 0; padding: 0; }
 body {
