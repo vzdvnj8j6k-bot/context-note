@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Block, BlockType, Note } from '@/lib/types'
 import { loadStore, saveStore, uid, todayStr } from '@/lib/store'
+import { supabase } from '@/lib/supabase'
+import type { User } from '@supabase/supabase-js'
 
 // ── Prefix → block type ────────────────────────────────────────────────────
 const PREFIXES: Record<string, BlockType> = {
@@ -412,51 +414,53 @@ export default function NoteApp() {
   const [copied, setCopied] = useState(false)
   const [savedFlash, setSavedFlash] = useState(false)
   const [mobPanel, setMobPanel] = useState<'notes' | 'cue'>('notes')
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const userRef = useRef<User | null>(null)
   const cueRef = useRef<HTMLTextAreaElement>(null)
   const sumRef = useRef<HTMLTextAreaElement>(null)
 
   const activeNote = notes.find(n => n.id === activeId) ?? null
 
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ?? null
+      setUser(u)
+      userRef.current = u
+      setAuthLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user ?? null
+      setUser(u)
+      userRef.current = u
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const { notes: saved, activeId: aid } = loadStore()
-    if (saved.length > 0) {
-      setNotes(saved)
-      setActiveId(aid ?? saved[0].id)
+    if (authLoading) return
+    if (user) {
+      loadFromSupabase()
     } else {
-      // Realistic demo note showing how a real lecture looks
-      const demoBlocks: Block[] = [
-        { id: uid(), type: 'normal',    content: '- 今日の講義メモ ↓ このように書いていきます' },
-        { id: uid(), type: 'important', content: '> 自然選択：環境に適した個体が生存・繁殖しやすい仕組み（ダーウィン）' },
-        { id: uid(), type: 'question',  content: '? なぜ突然変異は「ランダム」に起きるのか？DNAのどの部分が壊れる？' },
-        { id: uid(), type: 'cause',     content: '=> 突然変異 → 形質の多様性 → 自然選択 → 進化' },
-        { id: uid(), type: 'exam',      content: '! 「適者生存」は「強者生存」ではない。環境への適合度が重要' },
-        { id: uid(), type: 'reaction',  content: '~ 病気への耐性も「選択圧」なんだ！面白い。抗生物質耐性菌もこれか' },
-        { id: uid(), type: 'normal',    content: '' },
-        { id: uid(), type: 'normal',    content: '--- 書き方ガイド ---' },
-        { id: uid(), type: 'normal',    content: '- Enter で新しい行　/ でブロック種類を選ぶ　Backspace で行を結合' },
-        { id: uid(), type: 'normal',    content: '- Ctrl+R で復習モード（> の重要ブロックが隠れる）　Ctrl+/ でヘルプ' },
-      ]
-      const first: Note = {
-        id: uid(),
-        subject: '生物学', topic: '進化論と自然選択', session: '第3回', date: todayStr(),
-        cue: '重要な問い：\n\n自然選択とは何か？\n→ 環境適合度の高い個体が生き残る\n\n突然変異はなぜ起きる？',
-        summary: '自然選択は「強者」ではなく「環境に適した者」が残る仕組み。突然変異→多様性→選択→進化の流れが核心。',
-        blocks: demoBlocks, created: Date.now(), updated: Date.now(),
-      }
-      setNotes([first])
-      setActiveId(first.id)
+      loadLocal()
     }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, authLoading])
 
   // ── Persist ───────────────────────────────────────────────────────────────
   const scheduleSave = useCallback((newNotes: Note[], newActiveId: string | null) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => {
+    saveTimerRef.current = setTimeout(async () => {
       saveStore(newNotes, newActiveId)
       setSavedFlash(true)
       setTimeout(() => setSavedFlash(false), 2000)
+      if (userRef.current) {
+        await upsertToSupabase(newNotes)
+      }
     }, 800)
   }, [])
 
@@ -484,6 +488,7 @@ export default function NoteApp() {
   }
 
   function deleteNote(id: string) {
+    if (userRef.current) deleteFromSupabase(id)
     setNotes(prev => {
       const next = prev.filter(n => n.id !== id)
       const newActive = id === activeId ? (next[0]?.id ?? null) : activeId
@@ -492,6 +497,85 @@ export default function NoteApp() {
       if (next.length === 0) newNote()
       return next
     })
+  }
+
+  // ── Supabase helpers ──────────────────────────────────────────────────────
+  function createFirstNote() {
+    const demoBlocks: Block[] = [
+      { id: uid(), type: 'normal',    content: '- 今日の講義メモ ↓ このように書いていきます' },
+      { id: uid(), type: 'important', content: '> 自然選択：環境に適した個体が生存・繁殖しやすい仕組み（ダーウィン）' },
+      { id: uid(), type: 'question',  content: '? なぜ突然変異は「ランダム」に起きるのか？DNAのどの部分が壊れる？' },
+      { id: uid(), type: 'cause',     content: '=> 突然変異 → 形質の多様性 → 自然選択 → 進化' },
+      { id: uid(), type: 'exam',      content: '! 「適者生存」は「強者生存」ではない。環境への適合度が重要' },
+      { id: uid(), type: 'reaction',  content: '~ 病気への耐性も「選択圧」なんだ！面白い。抗生物質耐性菌もこれか' },
+      { id: uid(), type: 'normal',    content: '' },
+      { id: uid(), type: 'normal',    content: '--- 書き方ガイド ---' },
+      { id: uid(), type: 'normal',    content: '- Enter で新しい行　/ でブロック種類を選ぶ　Backspace で行を結合' },
+      { id: uid(), type: 'normal',    content: '- Ctrl+R で復習モード（> の重要ブロックが隠れる）　Ctrl+/ でヘルプ' },
+    ]
+    const first: Note = {
+      id: uid(), subject: '生物学', topic: '進化論と自然選択', session: '第3回', date: todayStr(),
+      cue: '重要な問い：\n\n自然選択とは何か？\n→ 環境適合度の高い個体が生き残る\n\n突然変異はなぜ起きる？',
+      summary: '自然選択は「強者」ではなく「環境に適した者」が残る仕組み。突然変異→多様性→選択→進化の流れが核心。',
+      blocks: demoBlocks, created: Date.now(), updated: Date.now(),
+    }
+    setNotes([first])
+    setActiveId(first.id)
+  }
+
+  function loadLocal() {
+    const { notes: saved, activeId: aid } = loadStore()
+    if (saved.length > 0) {
+      setNotes(saved)
+      setActiveId(aid ?? saved[0].id)
+    } else {
+      createFirstNote()
+    }
+  }
+
+  async function loadFromSupabase() {
+    setSyncing(true)
+    try {
+      const { data, error } = await supabase
+        .from('notes')
+        .select('data, updated')
+        .order('updated', { ascending: false })
+      if (error) throw error
+      if (data && data.length > 0) {
+        const remoteNotes = data.map(r => r.data as Note)
+        setNotes(remoteNotes)
+        setActiveId(remoteNotes[0].id)
+      } else {
+        // New user: migrate existing local notes to Supabase
+        const { notes: local, activeId: localActive } = loadStore()
+        if (local.length > 0) {
+          setNotes(local)
+          setActiveId(localActive ?? local[0].id)
+          const rows = local.map(n => ({ id: n.id, user_id: userRef.current!.id, data: n, updated: n.updated }))
+          await supabase.from('notes').upsert(rows)
+        } else {
+          createFirstNote()
+        }
+      }
+    } catch (e) {
+      console.error('Supabase load failed:', e)
+      loadLocal()
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  async function upsertToSupabase(notesToSave: Note[]) {
+    if (!userRef.current) return
+    const rows = notesToSave.map(n => ({
+      id: n.id, user_id: userRef.current!.id, data: n, updated: n.updated,
+    }))
+    await supabase.from('notes').upsert(rows)
+  }
+
+  async function deleteFromSupabase(id: string) {
+    if (!userRef.current) return
+    await supabase.from('notes').delete().eq('id', id).eq('user_id', userRef.current.id)
   }
 
   // ── Review ────────────────────────────────────────────────────────────────
@@ -602,6 +686,15 @@ export default function NoteApp() {
     const sel = window.getSelection()!
     sel.removeAllRanges()
     sel.addRange(range)
+  }
+
+  // ── Loading state ─────────────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', color: 'var(--fg3)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13 }}>
+        接続中...
+      </div>
+    )
   }
 
   if (!activeNote) return null
@@ -728,6 +821,33 @@ export default function NoteApp() {
                   className="opacity-0 group-hover:opacity-100 hover:!text-[var(--c-ex)]">×</button>
               </div>
             ))}
+          </div>
+          {/* Auth section */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', padding: '10px 12px', flexShrink: 0 }}>
+            {user ? (
+              <>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  ☁ {user.email}
+                </div>
+                <button
+                  onClick={() => supabase.auth.signOut()}
+                  style={{ width: '100%', background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 5, color: 'rgba(255,255,255,.55)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, padding: '5px 8px', cursor: 'pointer' }}
+                >ログアウト</button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', marginBottom: 6 }}>
+                  複数デバイスで同期する
+                </div>
+                <button
+                  onClick={() => supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: { redirectTo: window.location.origin },
+                  })}
+                  style={{ width: '100%', background: 'rgba(66,133,244,.12)', border: '1px solid rgba(66,133,244,.35)', borderRadius: 5, color: '#7ca8ff', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, padding: '5px 8px', cursor: 'pointer' }}
+                >G · Googleでログイン</button>
+              </>
+            )}
           </div>
         </aside>
 
@@ -875,6 +995,7 @@ export default function NoteApp() {
           </span>
         ))}
         <span style={{ marginLeft: 'auto', color: savedFlash ? '#5ac87a' : 'transparent', transition: 'color .4s' }}>✓ 保存済み</span>
+        {syncing && <span style={{ color: 'rgba(66,133,244,.8)' }}>⟳ 同期中</span>}
         {reviewMode && <span style={{ color: 'var(--acc)', fontWeight: 600 }}>復習モード</span>}
       </div>
 
