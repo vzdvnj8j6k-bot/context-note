@@ -972,6 +972,15 @@ ${buildNoteText(activeNote)}
             onChange={e => updateNote({ session: e.target.value })} />
           <button className={hbtn(reviewMode)} onClick={toggleReview} title="復習モード" style={{ fontSize: 12 }}>復習</button>
           <button className={hbtn(showAI)} onClick={() => { setShowAI(p => !p); setShareUrl('') }} title="AI解説" style={{ fontSize: 12 }}>AI</button>
+          {/* Auth dot */}
+          {user ? (
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} title={`ログイン済み: ${user.email}`} />
+          ) : (
+            <button onClick={() => setShowWelcome(true)}
+              style={{ background: 'rgba(255,180,0,.12)', border: '1px solid rgba(255,180,0,.35)', borderRadius: 5, color: '#ffb400', fontSize: 10, padding: '2px 7px', cursor: 'pointer', fontFamily: 'Noto Sans JP, sans-serif', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              未登録
+            </button>
+          )}
         </div>
         <div className="px-3 pb-1">
           <input className={`${miBase} w-full text-sm`} style={{ fontFamily: 'inherit' }}
@@ -1053,6 +1062,23 @@ ${buildNoteText(activeNote)}
           </button>
           <button className={hbtn()} onClick={openExport} title="エクスポート">⬇</button>
           <button className={hbtn()} onClick={() => setShowHelp(true)} title="ヘルプ Ctrl+/">?</button>
+          {/* Auth status chip */}
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(47,82,212,.15)', border: '1px solid rgba(47,82,212,.35)', borderRadius: 6, padding: '3px 10px', cursor: 'default' }} title={user.email ?? ''}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', fontFamily: 'IBM Plex Mono, monospace', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.email}
+              </span>
+              <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,.4)', fontSize: 11, cursor: 'pointer', padding: 0, marginLeft: 2 }} title="ログアウト">✕</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowWelcome(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', color: 'rgba(255,255,255,.55)', fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', whiteSpace: 'nowrap' }}
+              title="Googleでログイン">
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(255,255,255,.25)', flexShrink: 0 }} />
+              未ログイン
+            </button>
+          )}
         </div>
       </header>
 
