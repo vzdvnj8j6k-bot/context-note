@@ -462,9 +462,7 @@ export default function NoteApp() {
   const [mobPanel, setMobPanel] = useState<'notes' | 'cue' | 'summary'>('notes')
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
-  const [showWelcome, setShowWelcome] = useState(() => {
-    try { return !localStorage.getItem('ctx-visited') } catch { return false }
-  })
+  const [showWelcome, setShowWelcome] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [mobNoteList, setMobNoteList] = useState(false)
@@ -490,7 +488,7 @@ export default function NoteApp() {
       const u = session?.user ?? null
       setUser(u)
       userRef.current = u
-      if (u) { setShowWelcome(false); try { localStorage.setItem('ctx-visited', '1') } catch {} }
+      if (u) setShowWelcome(false)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -499,8 +497,10 @@ export default function NoteApp() {
   useEffect(() => {
     if (authLoading) return
     if (user) {
+      setShowWelcome(false)
       loadFromSupabase()
     } else {
+      setShowWelcome(true)
       loadLocal()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -836,9 +836,10 @@ ${buildNoteText(activeNote)}
 
   // ── Welcome / Login screen ────────────────────────────────────────────────
   function dismissWelcome() {
-    try { localStorage.setItem('ctx-visited', '1') } catch {}
     setShowWelcome(false)
   }
+
+  const oauthError = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('error')
 
   const FEATURES = [
     { icon: '📝', title: 'コーネル式ノート', desc: 'キュー・ノート・まとめの3分割で\n授業内容を構造的に整理' },
@@ -892,6 +893,13 @@ ${buildNoteText(activeNote)}
             </div>
           ))}
         </div>
+
+        {/* OAuth error */}
+        {oauthError && (
+          <div style={{ width: '100%', background: 'rgba(176,24,24,.15)', border: '1px solid rgba(176,24,24,.4)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#e07070', fontSize: 13, fontFamily: 'Noto Sans JP, sans-serif' }}>
+            ログインに失敗しました。再度お試しください。
+          </div>
+        )}
 
         {/* Google login button */}
         <button
