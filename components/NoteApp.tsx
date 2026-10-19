@@ -464,6 +464,7 @@ export default function NoteApp() {
   const [authLoading, setAuthLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [showAI, setShowAI] = useState(false)
+  const [mobNoteList, setMobNoteList] = useState(false)
   const [aiCopied, setAiCopied] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
@@ -827,19 +828,15 @@ ${buildNoteText(activeNote)}
       <div className="hidden max-[700px]:flex flex-col flex-shrink-0"
         style={{ background: 'var(--deck)', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
         <div className="flex items-center gap-2 px-3 py-2">
+          <button className={hbtn()} onClick={() => setMobNoteList(true)} title="ノート一覧" style={{ fontSize: 16, padding: '2px 8px' }}>≡</button>
           <input className={`${miBase} flex-1 min-w-0 font-bold text-sm`} style={{ fontFamily: 'inherit' }}
             placeholder="科目名" value={activeNote.subject}
             onChange={e => updateNote({ subject: e.target.value })} />
           <input className={`${miBase} w-14 flex-shrink-0 text-center text-sm`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}
             placeholder="第?" value={activeNote.session}
             onChange={e => updateNote({ session: e.target.value })} />
-          <button className={hbtn()} onClick={newNote} title="新規ノート" style={{ fontSize: 18, lineHeight: 1, padding: '2px 8px' }}>+</button>
-          <button className={hbtn()} onClick={() => deleteNote(activeNote.id)} title="このノートを削除" style={{ fontSize: 13, color: 'rgba(176,24,24,.8)' }}>🗑</button>
           <button className={hbtn(reviewMode)} onClick={toggleReview} title="復習モード" style={{ fontSize: 12 }}>復習</button>
           <button className={hbtn(showAI)} onClick={() => { setShowAI(p => !p); setShareUrl('') }} title="AI解説" style={{ fontSize: 12 }}>AI</button>
-          <button className={hbtn()} onClick={shareNote} disabled={shareLoading} title="共有" style={{ fontSize: 12 }}>
-            {shareLoading ? '...' : shareUrl ? '✓' : '🔗'}
-          </button>
         </div>
         <div className="px-3 pb-1">
           <input className={`${miBase} w-full text-sm`} style={{ fontFamily: 'inherit' }}
@@ -847,6 +844,53 @@ ${buildNoteText(activeNote)}
             onChange={e => updateNote({ topic: e.target.value })} />
         </div>
       </div>
+
+      {/* Mobile note list bottom sheet */}
+      {mobNoteList && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ background: 'rgba(0,0,0,.55)' }}
+          onClick={() => setMobNoteList(false)}>
+          <div style={{ background: 'var(--surf)', borderRadius: '16px 16px 0 0', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', borderBottom: '1px solid var(--edge)' }}>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>ノート一覧</span>
+              <button style={{ background: 'var(--acc)', border: 'none', borderRadius: 8, color: '#fff', fontFamily: 'Noto Sans JP, sans-serif', fontSize: 13, fontWeight: 700, padding: '6px 14px', cursor: 'pointer' }}
+                onClick={() => { newNote(); setMobNoteList(false) }}>+ 新規</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {notes.map(n => (
+                <div key={n.id}
+                  style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--edge)', background: n.id === activeId ? 'var(--acc-dim)' : 'transparent', cursor: 'pointer' }}
+                  onClick={() => { setActiveId(n.id); setMobNoteList(false) }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{noteTitle(n) || '無題'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--fg3)', marginTop: 2 }}>{n.date}</div>
+                  </div>
+                  {n.id === activeId && <span style={{ fontSize: 11, color: 'var(--acc)', marginRight: 8, fontWeight: 700 }}>表示中</span>}
+                  <button
+                    onClick={e => { e.stopPropagation(); deleteNote(n.id); if (notes.length <= 1) setMobNoteList(false) }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--fg3)', fontSize: 18, cursor: 'pointer', padding: '4px 6px', borderRadius: 6, flexShrink: 0 }}
+                    onTouchStart={e => (e.currentTarget.style.color = '#b01818')}
+                    onTouchEnd={e => (e.currentTarget.style.color = 'var(--fg3)')}>×</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '10px 16px', borderTop: '1px solid var(--edge)' }}>
+              {user ? (
+                <div style={{ fontSize: 11, color: 'var(--fg3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>☁ {user.email}</span>
+                  <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: '1px solid var(--edge)', borderRadius: 6, color: 'var(--fg3)', fontSize: 11, padding: '4px 10px', cursor: 'pointer' }}>ログアウト</button>
+                </div>
+              ) : (
+                <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
+                  style={{ width: '100%', background: 'rgba(66,133,244,.1)', border: '1px solid rgba(66,133,244,.35)', borderRadius: 8, color: '#7ca8ff', fontSize: 13, padding: '8px', cursor: 'pointer' }}>
+                  G · Googleでログイン / 同期
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header style={{ background: 'var(--deck)', borderBottom: '1px solid rgba(255,255,255,.05)' }}
