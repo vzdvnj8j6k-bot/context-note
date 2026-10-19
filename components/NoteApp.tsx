@@ -851,7 +851,7 @@ ${buildNoteText(activeNote)}
   const WelcomeScreen = showWelcome && !user ? (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 200,
-      background: '#0d0d1a',
+      background: 'var(--bg)',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       overflowY: 'auto',
       padding: '0 20px 40px',
@@ -864,18 +864,18 @@ ${buildNoteText(activeNote)}
         <div style={{ marginTop: 52, marginBottom: 8, display: 'flex', gap: 5 }}>
           {[['重要','#2f52d4'],['疑問','#c06800'],['試験','#b01818']].map(([t,c]) => (
             <span key={t} style={{
-              background: `${c}22`, border: `1px solid ${c}88`,
+              background: `${c}18`, border: `1px solid ${c}88`,
               color: c, borderRadius: 6, padding: '4px 11px',
               fontSize: 12, fontFamily: 'Noto Sans JP, sans-serif', fontWeight: 700, letterSpacing: '.03em',
             }}>{t}</span>
           ))}
         </div>
         <h1 style={{
-          color: '#fff', fontSize: 30, fontWeight: 800, margin: '10px 0 6px',
+          color: 'var(--fg)', fontSize: 30, fontWeight: 800, margin: '10px 0 6px',
           fontFamily: 'Noto Sans JP, sans-serif', letterSpacing: '-.01em',
         }}>Classnotes</h1>
         <p style={{
-          color: 'rgba(255,255,255,.4)', fontSize: 13, margin: '0 0 36px',
+          color: 'var(--fg3)', fontSize: 13, margin: '0 0 36px',
           fontFamily: 'Noto Sans JP, sans-serif', textAlign: 'center', lineHeight: 1.6,
         }}>授業・講義を記録して、効率よく復習する</p>
 
@@ -883,13 +883,13 @@ ${buildNoteText(activeNote)}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginBottom: 32 }}>
           {FEATURES.map(f => (
             <div key={f.title} style={{
-              background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)',
+              background: 'var(--surf)', border: '1px solid var(--edge)',
               borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 14, alignItems: 'flex-start',
             }}>
               <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>{f.icon}</span>
               <div>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, fontFamily: 'Noto Sans JP, sans-serif', marginBottom: 3 }}>{f.title}</div>
-                <div style={{ color: 'rgba(255,255,255,.4)', fontSize: 12, fontFamily: 'Noto Sans JP, sans-serif', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{f.desc}</div>
+                <div style={{ color: 'var(--fg)', fontWeight: 700, fontSize: 14, fontFamily: 'Noto Sans JP, sans-serif', marginBottom: 3 }}>{f.title}</div>
+                <div style={{ color: 'var(--fg3)', fontSize: 12, fontFamily: 'Noto Sans JP, sans-serif', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{f.desc}</div>
               </div>
             </div>
           ))}
@@ -897,7 +897,7 @@ ${buildNoteText(activeNote)}
 
         {/* OAuth error */}
         {oauthError && (
-          <div style={{ width: '100%', background: 'rgba(176,24,24,.15)', border: '1px solid rgba(176,24,24,.4)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#e07070', fontSize: 13, fontFamily: 'Noto Sans JP, sans-serif' }}>
+          <div style={{ width: '100%', background: 'var(--c-ex-bg)', border: '1px solid var(--c-ex)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: 'var(--c-ex)', fontSize: 13, fontFamily: 'Noto Sans JP, sans-serif' }}>
             ログインに失敗しました。再度お試しください。
           </div>
         )}
@@ -907,13 +907,13 @@ ${buildNoteText(activeNote)}
           onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
           style={{
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-            background: '#fff', border: 'none', borderRadius: 12,
+            background: 'var(--acc)', border: 'none', borderRadius: 12,
             padding: '15px 20px', cursor: 'pointer', marginBottom: 10,
-            fontSize: 15, fontWeight: 700, color: '#1a1a2e',
+            fontSize: 15, fontWeight: 700, color: '#fff',
             fontFamily: 'Noto Sans JP, sans-serif',
-            boxShadow: '0 2px 16px rgba(47,82,212,.25)',
+            boxShadow: '0 2px 16px rgba(47,82,212,.3)',
           }}>
-          <svg width="20" height="20" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
+          <svg width="20" height="20" viewBox="0 0 48 48" style={{ flexShrink: 0, background: '#fff', borderRadius: 4, padding: 2 }}>
             <path fill="#EA4335" d="M24 9.5c3.5 0 6.3 1.2 8.4 3.2l6.2-6.2C34.5 3 29.6 1 24 1 14.9 1 7.2 6.4 3.8 14l7.3 5.7C12.9 13.5 18 9.5 24 9.5z"/>
             <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.4-4.8 7.1l7.4 5.7c4.3-4 6.8-9.9 6.8-16.7z"/>
             <path fill="#FBBC05" d="M11.1 28.3A14.5 14.5 0 0 1 9.5 24c0-1.5.3-3 .7-4.3L3 14C1.1 17.4 0 21.1 0 25c0 3.9 1.1 7.5 2.9 10.7l8.2-6.3z"/>
@@ -921,7 +921,7 @@ ${buildNoteText(activeNote)}
           </svg>
           Googleでログイン
         </button>
-        <p style={{ color: 'rgba(255,255,255,.22)', fontSize: 11, fontFamily: 'Noto Sans JP, sans-serif', margin: '0 0 20px', textAlign: 'center' }}>
+        <p style={{ color: 'var(--fg3)', fontSize: 11, fontFamily: 'Noto Sans JP, sans-serif', margin: '0 0 20px', textAlign: 'center' }}>
           無料・広告なし・複数デバイス同期
         </p>
 
@@ -929,8 +929,8 @@ ${buildNoteText(activeNote)}
         <button
           onClick={dismissWelcome}
           style={{
-            background: 'transparent', border: '1px solid rgba(255,255,255,.12)',
-            borderRadius: 8, color: 'rgba(255,255,255,.4)', fontSize: 13,
+            background: 'transparent', border: '1px solid var(--edge)',
+            borderRadius: 8, color: 'var(--fg3)', fontSize: 13,
             fontFamily: 'Noto Sans JP, sans-serif', cursor: 'pointer', padding: '10px 24px',
             width: '100%',
           }}>
