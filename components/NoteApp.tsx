@@ -417,12 +417,24 @@ export default function NoteApp() {
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [showAI, setShowAI] = useState(false)
+  const [aiResult, setAiResult] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [apiKey, setApiKey] = useState('')
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userRef = useRef<User | null>(null)
   const cueRef = useRef<HTMLDivElement>(null)
   const sumRef = useRef<HTMLTextAreaElement>(null)
 
   const activeNote = notes.find(n => n.id === activeId) ?? null
+
+  // ── Load API key ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    try { const k = localStorage.getItem('ctx-anthropic-key'); if (k) setApiKey(k) } catch {}
+  }, [])
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -622,6 +634,81 @@ export default function NoteApp() {
     })
   }
 
+  // ── AI explain ────────────────────────────────────────────────────────────
+  function buildNoteText(n: Note): string {
+    const lines: string[] = []
+    lines.push(`# ${n.subject} ${n.session ? '第' + n.session + '回' : ''} ${n.topic}`)
+    lines.push(`日付: ${n.date}`, '')
+    lines.push('## ノート本文', '')
+    n.blocks.forEach(b => {
+      const c = b.content
+      const indent = '  '.repeat(b.level ?? 0)
+      if (b.type === 'important') lines.push(`${indent}[重要] ${c.replace(/^> /, '')}`)
+      else if (b.type === 'question') lines.push(`${indent}[疑問] ${c.replace(/^\? /, '')}`)
+      else if (b.type === 'exam') lines.push(`${indent}[試験] ${c.replace(/^! /, '')}`)
+      else if (b.type === 'cause') lines.push(`${indent}[因果] ${c.replace(/^=> /, '')}`)
+      else if (b.type === 'reaction') lines.push(`${indent}[感想] ${c.replace(/^~ /, '')}`)
+      else lines.push(`${indent}${c.replace(/^- /, '')}`)
+    })
+    const CORNELL_QUESTIONS = ['定義・概念は何か？', 'なぜ・どのように起きるのか？', '具体的な例は？', '他の概念・以前の内容との違いは？', '試験で問われそうな点は？']
+    let cueAnswers: string[] = []
+    try { cueAnswers = JSON.parse(n.cue) } catch {}
+    if (!Array.isArray(cueAnswers)) cueAnswers = []
+    const hasCue = cueAnswers.some(a => a.trim())
+    if (hasCue) {
+      lines.push('', '## キュー（質問と回答）', '')
+      CORNELL_QUESTIONS.forEach((q, i) => {
+        if (cueAnswers[i]?.trim()) lines.push(`Q: ${q}`, `A: ${cueAnswers[i]}`, '')
+      })
+    }
+    if (n.summary.trim()) lines.push('## まとめ', '', n.summary)
+    return lines.join('\n')
+  }
+
+  async function runAIExplain() {
+    if (!activeNote) return
+    const key = apiKey.trim()
+    if (!key) return
+    setAiLoading(true)
+    setAiResult('')
+    try {
+      const res = await fetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ noteText: buildNoteText(activeNote) }),
+      })
+      if (!res.ok) { setAiResult('エラーが発生しました。APIキーを確認してください。'); setAiLoading(false); return }
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let text = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        text += decoder.decode(value, { stream: true })
+        setAiResult(text)
+      }
+    } catch { setAiResult('ネットワークエラーが発生しました。') }
+    setAiLoading(false)
+  }
+
+  // ── Share ─────────────────────────────────────────────────────────────────
+  async function shareNote() {
+    if (!activeNote) return
+    setShareLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('shares')
+        .insert({ note_data: activeNote, created_by: userRef.current?.id ?? null })
+        .select('id')
+        .single()
+      if (error || !data) throw error
+      const url = `${window.location.origin}/share/${data.id}`
+      setShareUrl(url)
+      navigator.clipboard.writeText(url).catch(() => {})
+    } catch { alert('共有に失敗しました。ログイン後に再試行してください。') }
+    setShareLoading(false)
+  }
+
   // ── Global keyboard ───────────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -737,6 +824,10 @@ export default function NoteApp() {
         <div className="flex gap-1 flex-shrink-0">
           <button className={hbtn()} onClick={() => setSidebarOpen(p => !p)} title="サイドバー Ctrl+B">☰</button>
           <button className={hbtn(reviewMode)} onClick={toggleReview} title="復習 Ctrl+R">復習</button>
+          <button className={hbtn(showAI)} onClick={() => { setShowAI(p => !p); setShareUrl('') }} title="AIに解説してもらう">AI解説</button>
+          <button className={hbtn()} onClick={shareNote} disabled={shareLoading} title="ノートを共有する">
+            {shareLoading ? '...' : shareUrl ? '✓ リンクをコピー済み' : '🔗 共有'}
+          </button>
           <button className={hbtn()} onClick={openExport} title="エクスポート">⬇</button>
           <button className={hbtn()} onClick={() => setShowHelp(true)} title="ヘルプ Ctrl+/">?</button>
         </div>
@@ -1037,6 +1128,83 @@ export default function NoteApp() {
             <button className="block mx-auto mt-3 px-5 py-1.5 rounded-md text-[13px] cursor-pointer"
               style={{ background: 'var(--acc-dim)', border: '1px solid var(--acc)', color: 'var(--acc)' }}
               onClick={() => setShowHelp(false)}>閉じる（Esc）</button>
+          </div>
+        </div>
+      )}
+
+      {/* AI explain panel */}
+      {showAI && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center" style={{ background: 'rgba(0,0,0,.72)' }}
+          onClick={() => setShowAI(false)}>
+          <div className="rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+            style={{ background: 'var(--surf)', border: '1px solid var(--edge)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--edge)' }}>
+              <span className="font-bold text-[14px]">AI解説</span>
+              <button onClick={() => setShowAI(false)} style={{ background: 'transparent', border: 'none', color: 'var(--fg3)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+            </div>
+
+            {!apiKey ? (
+              /* API key setup */
+              <div className="p-5 flex flex-col gap-3">
+                <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.7 }}>
+                  Anthropic の API キーを入力してください。キーはこのデバイスのみに保存されます。
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--fg3)' }}>
+                  取得: <span style={{ color: 'var(--acc)', fontFamily: 'IBM Plex Mono, monospace' }}>console.anthropic.com → API Keys</span>
+                </div>
+                <input
+                  type="password"
+                  className="outline-none rounded px-3 py-2 text-[13px]"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--edge)', color: 'var(--fg)', fontFamily: 'IBM Plex Mono, monospace' }}
+                  placeholder="sk-ant-..."
+                  value={apiKeyInput}
+                  onChange={e => setApiKeyInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const k = apiKeyInput.trim()
+                      if (k) { setApiKey(k); try { localStorage.setItem('ctx-anthropic-key', k) } catch {} }
+                    }
+                  }}
+                />
+                <button
+                  className="self-end px-4 py-1.5 rounded-md text-[13px] cursor-pointer"
+                  style={{ background: 'var(--acc-dim)', border: '1px solid var(--acc)', color: 'var(--acc)' }}
+                  onClick={() => {
+                    const k = apiKeyInput.trim()
+                    if (k) { setApiKey(k); try { localStorage.setItem('ctx-anthropic-key', k) } catch {} }
+                  }}
+                >保存して続ける</button>
+              </div>
+            ) : (
+              /* AI result */
+              <div className="flex flex-col flex-1 overflow-hidden min-h-0 gap-3 p-4">
+                {!aiResult && !aiLoading && (
+                  <div style={{ fontSize: 13, color: 'var(--fg2)', textAlign: 'center', padding: '20px 0' }}>
+                    このノートをClaudeに解説してもらいます
+                  </div>
+                )}
+                {(aiResult || aiLoading) && (
+                  <div className="flex-1 overflow-y-auto rounded-md p-4 text-[13px] leading-[1.8]"
+                    style={{ background: 'var(--bg)', border: '1px solid var(--edge)', fontFamily: 'inherit', color: 'var(--fg)', whiteSpace: 'pre-wrap' }}>
+                    {aiResult}
+                    {aiLoading && <span style={{ opacity: 0.5, animation: 'pulse 1s infinite' }}>▋</span>}
+                  </div>
+                )}
+                <div className="flex gap-2 justify-between items-center flex-shrink-0">
+                  <button
+                    style={{ background: 'transparent', border: 'none', color: 'var(--fg3)', cursor: 'pointer', fontSize: 11 }}
+                    onClick={() => { setApiKey(''); setApiKeyInput(''); try { localStorage.removeItem('ctx-anthropic-key') } catch {} }}
+                  >APIキーを変更</button>
+                  <button
+                    className="px-4 py-1.5 rounded-md text-[13px] cursor-pointer"
+                    style={{ background: aiLoading ? 'var(--edge)' : 'var(--acc-dim)', border: '1px solid var(--acc)', color: aiLoading ? 'var(--fg3)' : 'var(--acc)' }}
+                    disabled={aiLoading}
+                    onClick={runAIExplain}
+                  >{aiLoading ? '解説中...' : aiResult ? '再解説' : '解説してもらう'}</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
