@@ -1520,21 +1520,18 @@ ${buildNoteText(activeNote)}
               {/* Step 2 */}
               <div style={{ fontSize: 11, color: 'var(--fg3)', textAlign: 'center' }}>↓ 好きなAIを開いて貼り付け（Ctrl+V）</div>
               <div className="flex flex-col gap-2">
-                <a href="https://chat.openai.com" target="_blank" rel="noreferrer"
-                  className="py-2.5 rounded-lg text-[13px] font-bold text-center cursor-pointer"
-                  style={{ background: 'rgba(16,163,127,.1)', border: '1px solid rgba(16,163,127,.4)', color: '#10a37f', textDecoration: 'none' }}>
-                  ChatGPT で開く
-                </a>
-                <a href="https://gemini.google.com" target="_blank" rel="noreferrer"
-                  className="py-2.5 rounded-lg text-[13px] font-bold text-center cursor-pointer"
-                  style={{ background: 'rgba(66,133,244,.1)', border: '1px solid rgba(66,133,244,.4)', color: '#4285f4', textDecoration: 'none' }}>
-                  Gemini で開く
-                </a>
-                <a href="https://claude.ai" target="_blank" rel="noreferrer"
-                  className="py-2.5 rounded-lg text-[13px] font-bold text-center cursor-pointer"
-                  style={{ background: 'rgba(217,119,6,.08)', border: '1px solid rgba(217,119,6,.3)', color: '#f59e0b', textDecoration: 'none' }}>
-                  Claude で開く
-                </a>
+                {[
+                  { label: 'ChatGPT で開く', url: 'https://chat.openai.com', bg: 'rgba(16,163,127,.1)', border: 'rgba(16,163,127,.4)', color: '#10a37f' },
+                  { label: 'Gemini で開く',  url: 'https://gemini.google.com', bg: 'rgba(66,133,244,.1)', border: 'rgba(66,133,244,.4)', color: '#4285f4' },
+                  { label: 'Claude で開く',  url: 'https://claude.ai', bg: 'rgba(217,119,6,.08)', border: 'rgba(217,119,6,.3)', color: '#f59e0b' },
+                ].map(({ label, url, bg, border, color }) => (
+                  <button key={url}
+                    onClick={() => { copyForAI(); window.open(url, '_blank', 'noopener,noreferrer') }}
+                    className="py-2.5 rounded-lg text-[13px] font-bold text-center cursor-pointer"
+                    style={{ background: bg, border: `1px solid ${border}`, color, width: '100%' }}>
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
