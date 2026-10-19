@@ -1033,6 +1033,7 @@ ${buildNoteText(activeNote)}
             onChange={e => updateNote({ session: e.target.value })} />
           <button className={hbtn(reviewMode)} onClick={toggleReview} title="復習モード" style={{ fontSize: 12 }}>復習</button>
           <button className={hbtn(showAI)} onClick={() => { setShowAI(p => !p); setShareUrl('') }} title="AI解説" style={{ fontSize: 12 }}>AI</button>
+          <a href="/pdf" className={hbtn()} title="PDFアノテーター" style={{ fontSize: 12, textDecoration: 'none' }}>PDF</a>
           {/* Auth dot */}
           {user ? (
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} title={`ログイン済み: ${user.email}`} />
@@ -1128,6 +1129,7 @@ ${buildNoteText(activeNote)}
           <button className={hbtn()} onClick={() => setSidebarOpen(p => !p)} title="サイドバー Ctrl+B">☰</button>
           <button className={hbtn(reviewMode)} onClick={toggleReview} title="復習 Ctrl+R">復習</button>
           <button className={hbtn(showAI)} onClick={() => { setShowAI(p => !p); setShareUrl('') }} title="AIに解説してもらう">AI解説</button>
+          <a href="/pdf" className={hbtn()} title="PDFアノテーター" style={{ textDecoration: 'none' }}>PDF</a>
           <button className={hbtn()} onClick={shareNote} disabled={shareLoading} title="ノートを共有する">
             {shareLoading ? '...' : shareUrl ? '✓ リンクをコピー済み' : '🔗 共有'}
           </button>
