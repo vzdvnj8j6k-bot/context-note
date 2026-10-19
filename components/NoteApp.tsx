@@ -225,7 +225,7 @@ function BlockEditor({
   }, [reviewMode, blocks])
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.nativeEvent.isComposing) return  // let IME finish composing
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return  // let IME finish composing (229 = Android Chrome IME)
     const target = e.target as HTMLDivElement
     if (!target.classList.contains('block-line')) return
 
