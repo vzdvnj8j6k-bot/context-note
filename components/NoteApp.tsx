@@ -534,7 +534,7 @@ export default function NoteApp() {
   function newNote() {
     const note: Note = {
       id: uid(), subject: '', topic: '', session: '', date: todayStr(),
-      cue: '', summary: '', blocks: [], created: Date.now(), updated: Date.now(),
+      cue: '', summary: '', blocks: [{ id: uid(), type: 'normal', content: '- ', level: 0 }], created: Date.now(), updated: Date.now(),
     }
     setNotes(prev => {
       const next = [note, ...prev]
@@ -561,7 +561,7 @@ export default function NoteApp() {
   function createFirstNote() {
     const first: Note = {
       id: uid(), subject: '', topic: '', session: '', date: todayStr(),
-      cue: '', summary: '', blocks: [], created: Date.now(), updated: Date.now(),
+      cue: '', summary: '', blocks: [{ id: uid(), type: 'normal', content: '- ', level: 0 }], created: Date.now(), updated: Date.now(),
     }
     setNotes([first])
     setActiveId(first.id)
