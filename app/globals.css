@@ -93,6 +93,13 @@ body {
   font-weight: 700;
 }
 
+/* Badge and counter are decorative — prevent selection/editing */
+.block-badge,
+.char-count {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* Char count stays on the right */
 
 /* Character count meter */
