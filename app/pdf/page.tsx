@@ -29,7 +29,20 @@ export default function PdfHomePage() {
       setSession(s)
       if (s) getLastSession().then(ls => setLastSession(ls))
     })
-    return () => subscription.unsubscribe()
+    // Listen for popup callback completion via localStorage event
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'pdf-auth-complete') {
+        supabase.auth.getSession().then(({ data: { session: s } }) => {
+          setSession(s)
+          if (s) getLastSession().then(ls => setLastSession(ls))
+        })
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [])
 
   const loadDocuments = useCallback(async () => {
@@ -45,11 +58,24 @@ export default function PdfHomePage() {
     if (session) loadDocuments()
   }, [session, loadDocuments])
 
-  function handleGoogleLogin() {
-    supabase.auth.signInWithOAuth({
+  async function handleGoogleLogin() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/pdf/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/pdf/auth/callback`,
+        skipBrowserRedirect: true,
+      },
     })
+    if (error || !data?.url) return
+    // Open in popup to bypass Chrome's bounce tracking detection
+    const w = 500, h = 620
+    const left = Math.max(0, window.screen.width / 2 - w / 2)
+    const top = Math.max(0, window.screen.height / 2 - h / 2)
+    const popup = window.open(data.url, 'google-signin', `width=${w},height=${h},left=${left},top=${top}`)
+    if (!popup) {
+      // Popup blocked (mobile etc.) — fall back to redirect
+      window.location.href = data.url
+    }
   }
 
   async function handleSignOut() {
