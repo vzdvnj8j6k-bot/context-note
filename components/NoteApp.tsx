@@ -466,6 +466,7 @@ export default function NoteApp() {
   const [syncing, setSyncing] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [mobNoteList, setMobNoteList] = useState(false)
+  const [authMenuOpen, setAuthMenuOpen] = useState(false)
   const [aiCopied, setAiCopied] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
@@ -488,7 +489,7 @@ export default function NoteApp() {
       const u = session?.user ?? null
       setUser(u)
       userRef.current = u
-      if (u) setShowWelcome(false)
+      if (u) { setShowWelcome(false); setAuthMenuOpen(false) }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -1021,15 +1022,25 @@ ${buildNoteText(activeNote)}
             </div>
             <div style={{ padding: '10px 16px', borderTop: '1px solid var(--edge)' }}>
               {user ? (
-                <div style={{ fontSize: 11, color: 'var(--fg3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>☁ {user.email}</span>
-                  <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: '1px solid var(--edge)', borderRadius: 6, color: 'var(--fg3)', fontSize: 11, padding: '4px 10px', cursor: 'pointer' }}>ログアウト</button>
+                <div style={{ background: 'rgba(47,82,212,.08)', border: '1px solid rgba(47,82,212,.2)', borderRadius: 10, padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: 'var(--fg2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'IBM Plex Mono, monospace' }}>{user.email}</span>
+                  </div>
+                  <button onClick={() => { supabase.auth.signOut(); setMobNoteList(false) }}
+                    style={{ width: '100%', background: 'rgba(176,24,24,.1)', border: '1px solid rgba(176,24,24,.3)', borderRadius: 8, color: '#e07070', fontSize: 13, padding: '9px', cursor: 'pointer', fontFamily: 'Noto Sans JP, sans-serif', fontWeight: 600 }}>
+                    ↩ ログアウト
+                  </button>
                 </div>
               ) : (
-                <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
-                  style={{ width: '100%', background: 'rgba(66,133,244,.1)', border: '1px solid rgba(66,133,244,.35)', borderRadius: 8, color: '#7ca8ff', fontSize: 13, padding: '8px', cursor: 'pointer' }}>
-                  G · Googleでログイン / 同期
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button onClick={() => { setShowWelcome(true); setMobNoteList(false) }}
+                    style={{ width: '100%', background: 'rgba(66,133,244,.12)', border: '1px solid rgba(66,133,244,.4)', borderRadius: 10, color: '#7ca8ff', fontSize: 14, padding: '12px', cursor: 'pointer', fontFamily: 'Noto Sans JP, sans-serif', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.3 1.2 8.4 3.2l6.2-6.2C34.5 3 29.6 1 24 1 14.9 1 7.2 6.4 3.8 14l7.3 5.7C12.9 13.5 18 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.4-4.8 7.1l7.4 5.7c4.3-4 6.8-9.9 6.8-16.7z"/><path fill="#FBBC05" d="M11.1 28.3A14.5 14.5 0 0 1 9.5 24c0-1.5.3-3 .7-4.3L3 14C1.1 17.4 0 21.1 0 25c0 3.9 1.1 7.5 2.9 10.7l8.2-6.3z"/><path fill="#34A853" d="M24 47c5.5 0 10.2-1.8 13.6-4.9l-7.4-5.7c-1.9 1.3-4.3 2.1-6.9 2.1-5.7 0-10.5-3.8-12.3-9l-8.2 6.3C7.1 42.8 15 47 24 47z"/></svg>
+                    Googleでログイン
+                  </button>
+                  <p style={{ margin: 0, fontSize: 11, color: 'var(--fg3)', textAlign: 'center', fontFamily: 'Noto Sans JP, sans-serif' }}>ログインすると複数デバイスで同期</p>
+                </div>
               )}
             </div>
           </div>
@@ -1062,23 +1073,43 @@ ${buildNoteText(activeNote)}
           </button>
           <button className={hbtn()} onClick={openExport} title="エクスポート">⬇</button>
           <button className={hbtn()} onClick={() => setShowHelp(true)} title="ヘルプ Ctrl+/">?</button>
-          {/* Auth status chip */}
-          {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(47,82,212,.15)', border: '1px solid rgba(47,82,212,.35)', borderRadius: 6, padding: '3px 10px', cursor: 'default' }} title={user.email ?? ''}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', fontFamily: 'IBM Plex Mono, monospace', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user.email}
-              </span>
-              <button onClick={() => supabase.auth.signOut()} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,.4)', fontSize: 11, cursor: 'pointer', padding: 0, marginLeft: 2 }} title="ログアウト">✕</button>
-            </div>
-          ) : (
-            <button onClick={() => setShowWelcome(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', color: 'rgba(255,255,255,.55)', fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', whiteSpace: 'nowrap' }}
-              title="Googleでログイン">
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(255,255,255,.25)', flexShrink: 0 }} />
-              未ログイン
-            </button>
-          )}
+          {/* Auth status chip with dropdown */}
+          <div style={{ position: 'relative' }}>
+            {user ? (
+              <button onClick={() => setAuthMenuOpen(p => !p)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: authMenuOpen ? 'rgba(47,82,212,.25)' : 'rgba(47,82,212,.15)', border: '1px solid rgba(47,82,212,.4)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,.8)', fontFamily: 'IBM Plex Mono, monospace', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user.email}
+                </span>
+                <span style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', marginLeft: 2 }}>▾</span>
+              </button>
+            ) : (
+              <button onClick={() => setShowWelcome(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,180,0,.1)', border: '1px solid rgba(255,180,0,.35)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: '#ffb400', fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', whiteSpace: 'nowrap' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ffb400', flexShrink: 0 }} />
+                ログイン
+              </button>
+            )}
+            {authMenuOpen && user && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setAuthMenuOpen(false)} />
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: 'var(--deck)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 10, padding: '6px', minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+                  <div style={{ padding: '8px 12px 10px', borderBottom: '1px solid rgba(255,255,255,.07)', marginBottom: 4 }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', fontFamily: 'IBM Plex Mono', marginBottom: 3 }}>ログイン中</div>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,.8)', fontFamily: 'IBM Plex Mono', wordBreak: 'break-all' }}>{user.email}</div>
+                  </div>
+                  <button
+                    onClick={() => { supabase.auth.signOut(); setAuthMenuOpen(false) }}
+                    style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 6, color: '#e07070', fontSize: 13, fontFamily: 'Noto Sans JP, sans-serif', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(176,24,24,.15)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <span style={{ fontSize: 14 }}>↩</span> ログアウト
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
