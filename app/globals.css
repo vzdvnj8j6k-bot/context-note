@@ -140,16 +140,17 @@ body {
 .panel-wrap:focus-within { outline: 2px solid var(--acc); outline-offset: -2px; }
 .panel-wrap:focus-within .pact { opacity: 1 !important; }
 
-/* Mobile: compact badges */
+/* Mobile: larger text and compact badges */
 @media (max-width: 700px) {
+  .block-line { font-size: 16px; line-height: 1.7; }
   .block-line[data-type="important"],
   .block-line[data-type="question"],
   .block-line[data-type="exam"],
   .block-line[data-type="cause"],
-  .block-line[data-type="reaction"] { padding-left: 42px; font-size: 12px; }
+  .block-line[data-type="reaction"] { padding-left: 46px; }
   .block-line[data-type="important"] > .block-badge,
   .block-line[data-type="question"]  > .block-badge,
   .block-line[data-type="exam"]      > .block-badge,
   .block-line[data-type="cause"]     > .block-badge,
-  .block-line[data-type="reaction"]  > .block-badge { width: 34px; font-size: 9px; padding: 1px 2px; }
+  .block-line[data-type="reaction"]  > .block-badge { width: 38px; font-size: 9px; padding: 1px 2px; }
 }
