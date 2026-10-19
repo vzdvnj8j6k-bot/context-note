@@ -462,6 +462,7 @@ export default function NoteApp() {
   const [mobPanel, setMobPanel] = useState<'notes' | 'cue' | 'summary'>('notes')
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [showWelcome, setShowWelcome] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [mobNoteList, setMobNoteList] = useState(false)
@@ -487,6 +488,7 @@ export default function NoteApp() {
       const u = session?.user ?? null
       setUser(u)
       userRef.current = u
+      if (u) { setShowWelcome(false); try { localStorage.setItem('ctx-visited', '1') } catch {} }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -514,6 +516,11 @@ export default function NoteApp() {
       }
     }, 800)
   }, [])
+
+  function switchNote(id: string) {
+    setActiveId(id)
+    try { const s = loadStore(); saveStore(s.notes, id) } catch {}
+  }
 
   function updateNote(patch: Partial<Note>) {
     setNotes(prev => {
@@ -560,13 +567,23 @@ export default function NoteApp() {
     setActiveId(first.id)
   }
 
+  function isDemoNote(n: Note) {
+    return n.subject === '生物学' && n.topic === '進化論と自然選択'
+  }
+
   function loadLocal() {
     const { notes: saved, activeId: aid } = loadStore()
-    if (saved.length > 0) {
-      setNotes(saved)
-      setActiveId(aid ?? saved[0].id)
-    } else {
+    const cleaned = saved.filter(n => !isDemoNote(n))
+    if (cleaned.length === 0) {
+      try {
+        const hasVisited = localStorage.getItem('ctx-visited')
+        if (!hasVisited) setShowWelcome(true)
+      } catch {}
       createFirstNote()
+    } else {
+      if (cleaned.length < saved.length) saveStore(cleaned, aid ?? cleaned[0].id)
+      setNotes(cleaned)
+      setActiveId(aid && cleaned.find(n => n.id === aid) ? aid : cleaned[0].id)
     }
   }
 
@@ -580,15 +597,28 @@ export default function NoteApp() {
       if (error) throw error
       if (data && data.length > 0) {
         const remoteNotes = data.map(r => r.data as Note)
-        setNotes(remoteNotes)
-        setActiveId(remoteNotes[0].id)
+        const cleaned = remoteNotes.filter(n => !isDemoNote(n))
+        if (cleaned.length === 0) {
+          createFirstNote()
+        } else {
+          setNotes(cleaned)
+          // Restore last-viewed note (Word-like resume)
+          const { activeId: localAid } = loadStore()
+          const restoredId = localAid && cleaned.find(n => n.id === localAid) ? localAid : cleaned[0].id
+          setActiveId(restoredId)
+          if (cleaned.length < remoteNotes.length) {
+            const demoIds = remoteNotes.filter(n => isDemoNote(n)).map(n => n.id)
+            await Promise.all(demoIds.map(id => supabase.from('notes').delete().eq('id', id)))
+          }
+        }
       } else {
         // New user: migrate existing local notes to Supabase
         const { notes: local, activeId: localActive } = loadStore()
-        if (local.length > 0) {
-          setNotes(local)
-          setActiveId(localActive ?? local[0].id)
-          const rows = local.map(n => ({ id: n.id, user_id: userRef.current!.id, data: n, updated: n.updated }))
+        const cleanedLocal = local.filter(n => !isDemoNote(n))
+        if (cleanedLocal.length > 0) {
+          setNotes(cleanedLocal)
+          setActiveId(localActive && cleanedLocal.find(n => n.id === localActive) ? localActive : cleanedLocal[0].id)
+          const rows = cleanedLocal.map(n => ({ id: n.id, user_id: userRef.current!.id, data: n, updated: n.updated }))
           await supabase.from('notes').upsert(rows)
         } else {
           createFirstNote()
@@ -806,6 +836,71 @@ ${buildNoteText(activeNote)}
 
   if (!activeNote) return null
 
+  // ── Welcome / Login screen overlay ───────────────────────────────────────
+  function dismissWelcome() {
+    try { localStorage.setItem('ctx-visited', '1') } catch {}
+    setShowWelcome(false)
+  }
+
+  const WelcomeScreen = showWelcome && !user ? (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: 'var(--deck)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '24px',
+    }}>
+      <div style={{ maxWidth: 400, width: '100%', textAlign: 'center' }}>
+        {/* Logo mark */}
+        <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 24 }}>
+          {['重要', '疑問', '試験'].map((t, i) => (
+            <span key={i} style={{
+              background: ['rgba(47,82,212,.2)', 'rgba(192,104,0,.2)', 'rgba(176,24,24,.2)'][i],
+              border: `1px solid ${ ['rgba(47,82,212,.5)', 'rgba(192,104,0,.5)', 'rgba(176,24,24,.5)'][i]}`,
+              color: ['#7ca8ff', '#e09040', '#e07070'][i],
+              borderRadius: 6, padding: '3px 10px', fontSize: 11, fontFamily: 'Noto Sans JP, sans-serif', fontWeight: 700,
+            }}>{t}</span>
+          ))}
+        </div>
+        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 700, fontFamily: 'Noto Sans JP, sans-serif', margin: '0 0 8px' }}>
+          コーネルノート
+        </h1>
+        <p style={{ color: 'rgba(255,255,255,.45)', fontSize: 13, fontFamily: 'Noto Sans JP, sans-serif', lineHeight: 1.7, margin: '0 0 32px' }}>
+          授業・講義を構造化して記録。<br />
+          キュー・ノート・まとめの3パートで<br />
+          復習効率を最大化します。
+        </p>
+        {/* Google login */}
+        <button
+          onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            background: '#fff', border: 'none', borderRadius: 10,
+            padding: '13px 16px', cursor: 'pointer', marginBottom: 12,
+            fontSize: 15, fontWeight: 600, color: '#1c1c2e', fontFamily: 'Noto Sans JP, sans-serif',
+          }}>
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.5 0 6.3 1.2 8.4 3.2l6.2-6.2C34.5 3 29.6 1 24 1 14.9 1 7.2 6.4 3.8 14l7.3 5.7C12.9 13.5 18 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.4-4.8 7.1l7.4 5.7c4.3-4 6.8-9.9 6.8-16.7z"/>
+            <path fill="#FBBC05" d="M11.1 28.3A14.5 14.5 0 0 1 9.5 24c0-1.5.3-3 .7-4.3L3 14C1.1 17.4 0 21.1 0 25c0 3.9 1.1 7.5 2.9 10.7l8.2-6.3z"/>
+            <path fill="#34A853" d="M24 47c5.5 0 10.2-1.8 13.6-4.9l-7.4-5.7c-1.9 1.3-4.3 2.1-6.9 2.1-5.7 0-10.5-3.8-12.3-9l-8.2 6.3C7.1 42.8 15 47 24 47z"/>
+          </svg>
+          Googleでログイン（無料・クロスデバイス同期）
+        </button>
+        {/* Skip */}
+        <button
+          onClick={dismissWelcome}
+          style={{
+            background: 'transparent', border: 'none',
+            color: 'rgba(255,255,255,.35)', fontSize: 13,
+            fontFamily: 'Noto Sans JP, sans-serif', cursor: 'pointer', padding: '8px',
+            textDecoration: 'underline', textUnderlineOffset: 3,
+          }}>
+          ログインせずに始める（このデバイスのみ保存）
+        </button>
+      </div>
+    </div>
+  ) : null
+
   // Whether notes area is empty (show hint card)
   const notesEmpty = activeNote.blocks.every(b => !b.content.trim())
 
@@ -823,6 +918,8 @@ ${buildNoteText(activeNote)}
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+
+      {WelcomeScreen}
 
       {/* Mobile-only compact header */}
       <div className="hidden max-[700px]:flex flex-col flex-shrink-0"
@@ -861,7 +958,7 @@ ${buildNoteText(activeNote)}
               {notes.map(n => (
                 <div key={n.id}
                   style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--edge)', background: n.id === activeId ? 'var(--acc-dim)' : 'transparent', cursor: 'pointer' }}
-                  onClick={() => { setActiveId(n.id); setMobNoteList(false) }}>
+                  onClick={() => { switchNote(n.id); setMobNoteList(false) }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{noteTitle(n) || '無題'}</div>
                     <div style={{ fontSize: 11, color: 'var(--fg3)', marginTop: 2 }}>{n.date}</div>
@@ -985,7 +1082,7 @@ ${buildNoteText(activeNote)}
           </div>
           <div className="flex-1 overflow-y-auto py-1">
             {notes.map(n => (
-              <div key={n.id} onClick={() => { setActiveId(n.id); setReviewMode(false) }}
+              <div key={n.id} onClick={() => { switchNote(n.id); setReviewMode(false) }}
                 style={{
                   padding: '8px 11px', cursor: 'pointer', position: 'relative',
                   borderLeft: `3px solid ${n.id === activeId ? 'var(--acc)' : 'transparent'}`,
