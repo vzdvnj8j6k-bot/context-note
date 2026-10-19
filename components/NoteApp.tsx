@@ -103,10 +103,17 @@ function BlockEditor({
 
   function placeCaretEnd(el: HTMLElement) {
     el.focus()
-    const sel = window.getSelection()!
+    const sel = window.getSelection()
+    if (!sel) return
+    const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text | undefined
     const range = document.createRange()
-    range.selectNodeContents(el)
-    range.collapse(false)
+    if (textNode) {
+      range.setStart(textNode, textNode.length)
+      range.collapse(true)
+    } else {
+      range.selectNodeContents(el)
+      range.collapse(false)
+    }
     sel.removeAllRanges()
     sel.addRange(range)
   }
@@ -218,6 +225,7 @@ function BlockEditor({
   }, [reviewMode, blocks])
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.nativeEvent.isComposing) return  // let IME finish composing
     const target = e.target as HTMLDivElement
     if (!target.classList.contains('block-line')) return
 
@@ -328,6 +336,7 @@ function BlockEditor({
 
   function handleInput(e: React.FormEvent<HTMLDivElement>) {
     if (reviewMode) return  // typing in review mode is ephemeral practice, don't save
+    if ((e.nativeEvent as InputEvent).isComposing) return  // let IME finish composing
     const target = e.target as HTMLDivElement
     if (!target.classList.contains('block-line')) return
     const text = textOf(target)

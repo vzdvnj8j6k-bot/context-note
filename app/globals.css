@@ -24,7 +24,6 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: 'Noto Sans JP', 'IBM Plex Sans', system-ui, sans-serif;
-  overflow: hidden;
 }
 
 /* Block editor lines */
@@ -39,9 +38,13 @@ body {
   padding: 3px 10px 3px 10px;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: break-word;
   min-height: 1.85em;
   position: relative;
   transition: background 0.12s, border-color 0.12s;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
 }
 .block-line:empty::before {
   content: attr(data-ph);
