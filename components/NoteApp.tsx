@@ -820,53 +820,44 @@ ${buildNoteText(activeNote)}
 
   // ── Insert prefix (mobile action bar + empty state card) ──────────────────
   function insertPrefix(prefix: string) {
-    const els = document.querySelectorAll<HTMLDivElement>('.block-line')
-    // activeElement is .block-text; walk up to .block-line
-    let target = (document.activeElement as HTMLElement)?.closest<HTMLDivElement>('.block-line')
-      ?? (els.length > 0 ? els[els.length - 1] : null)
-    if (!target) {
-      // No blocks at all: append one with the requested type
-      if (activeNote) {
-        const newType = detectType(prefix + 'x')
-        const newPrefix = TYPE_TO_PREFIX[newType] ?? prefix
-        updateNote({ blocks: [...activeNote.blocks, { id: uid(), type: newType, content: newPrefix }] })
-      }
-      return
-    }
+    if (!activeNote) return
     const newType = detectType(prefix + 'x')
-    // Update DOM immediately
-    target.dataset.type = newType
-    const badge = target.querySelector<HTMLSpanElement>('.block-badge')
-    if (badge) badge.textContent = BADGE[newType] ?? ''
-    // Persist type change to React state (prevents type reverting on re-render)
-    const blockId = target.dataset.id
-    if (blockId && activeNote) {
-      const updatedBlocks = activeNote.blocks.map(b => {
-        if (b.id !== blockId) return b
-        const oldPrefix = TYPE_TO_PREFIX[b.type] ?? ''
-        const rawText = b.content.startsWith(oldPrefix) ? b.content.slice(oldPrefix.length) : b.content
-        const newPrefix2 = TYPE_TO_PREFIX[newType] ?? ''
-        return { ...b, type: newType, content: newPrefix2 + rawText }
-      })
-      updateNote({ blocks: updatedBlocks })
+    const newPrefix = TYPE_TO_PREFIX[newType] ?? ''
+    const newId = uid()
+    const newBlock: Block = { id: newId, type: newType, content: newPrefix }
+
+    const els = document.querySelectorAll<HTMLDivElement>('.block-line')
+    const focusedLine = (document.activeElement as HTMLElement)?.closest<HTMLDivElement>('.block-line')
+    const focusedId = focusedLine?.dataset.id
+    const curBlocks = activeNote.blocks
+
+    let updated: Block[]
+    if (focusedId) {
+      const idx = curBlocks.findIndex(b => b.id === focusedId)
+      updated = [
+        ...curBlocks.slice(0, idx + 1),
+        newBlock,
+        ...curBlocks.slice(idx + 1),
+      ]
+    } else {
+      updated = [...curBlocks, newBlock]
     }
-    // Focus .block-text and place caret at end of its text node
-    const textSpan = target.querySelector<HTMLElement>('.block-text') ?? target
-    textSpan.focus()
-    const sel = window.getSelection()
-    if (sel) {
-      const textNode = Array.from(textSpan.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text | undefined
-      const range = document.createRange()
-      if (textNode) {
-        range.setStart(textNode, textNode.length)
-        range.collapse(true)
-      } else {
+
+    updateNote({ blocks: updated })
+    setTimeout(() => {
+      const el = document.querySelector<HTMLDivElement>(`[data-id="${newId}"]`)
+      if (!el) return
+      const textSpan = el.querySelector<HTMLElement>('.block-text') ?? el
+      textSpan.focus()
+      const sel = window.getSelection()
+      if (sel) {
+        const range = document.createRange()
         range.selectNodeContents(textSpan)
         range.collapse(false)
+        sel.removeAllRanges()
+        sel.addRange(range)
       }
-      sel.removeAllRanges()
-      sel.addRange(range)
-    }
+    }, 0)
   }
 
   // ── Loading state ─────────────────────────────────────────────────────────
