@@ -419,7 +419,7 @@ export default function NoteApp() {
   const [syncing, setSyncing] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userRef = useRef<User | null>(null)
-  const cueRef = useRef<HTMLTextAreaElement>(null)
+  const cueRef = useRef<HTMLDivElement>(null)
   const sumRef = useRef<HTMLTextAreaElement>(null)
 
   const activeNote = notes.find(n => n.id === activeId) ?? null
@@ -866,30 +866,47 @@ export default function NoteApp() {
                 <span className="pact text-[9px] px-1 rounded border opacity-0 transition-opacity"
                   style={{ background: 'var(--acc-dim)', borderColor: 'var(--acc)', color: 'var(--acc)' }}>ACTIVE</span>
               </div>
-              {/* Fixed Cornell questions */}
-              <div style={{ flexShrink: 0, borderBottom: '1px solid var(--edge)', padding: '8px 12px' }}>
-                {[
+              {/* Structured Cornell Q&A */}
+              <div ref={cueRef} className="flex-1 overflow-y-auto">
+                {([
                   '定義・概念は何か？',
                   'なぜ・どのように起きるのか？',
                   '具体的な例は？',
                   '他の概念・以前の内容との違いは？',
                   '試験で問われそうな点は？',
-                ].map((q, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', padding: '5px 0', borderBottom: i < 4 ? '1px dotted var(--edge)' : 'none' }}>
-                    <span style={{ color: 'var(--acc)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, flexShrink: 0, marginTop: 1 }}>□</span>
-                    <span style={{ fontSize: 12, color: 'var(--fg2)', lineHeight: 1.6 }}>{q}</span>
-                  </div>
-                ))}
+                ] as const).map((q, i) => {
+                  let answers: string[] = []
+                  try { answers = JSON.parse(activeNote.cue) } catch {}
+                  if (!Array.isArray(answers)) answers = []
+                  const val = answers[i] ?? ''
+                  return (
+                    <div key={i} style={{ borderBottom: '1px solid var(--edge)', padding: '10px 12px' }}>
+                      <div style={{ fontSize: 11, color: 'var(--acc)', fontFamily: 'IBM Plex Mono, monospace', marginBottom: 5, display: 'flex', gap: 5, alignItems: 'center' }}>
+                        <span style={{ opacity: 0.6 }}>{i + 1}.</span>
+                        <span style={{ color: 'var(--fg2)', fontFamily: 'inherit', fontSize: 11 }}>{q}</span>
+                      </div>
+                      <textarea
+                        rows={2}
+                        className="w-full resize-none outline-none text-[12px] leading-[1.7]"
+                        style={{ background: 'rgba(47,82,212,0.04)', border: '1px solid var(--edge)', borderRadius: 5, padding: '5px 8px', fontFamily: 'IBM Plex Mono, monospace', color: 'var(--fg)', caretColor: 'var(--acc)', width: '100%', boxSizing: 'border-box' }}
+                        placeholder="ここに答えを書く"
+                        value={val}
+                        onChange={e => {
+                          let cur: string[] = []
+                          try { cur = JSON.parse(activeNote.cue) } catch {}
+                          if (!Array.isArray(cur)) cur = []
+                          const next = [...cur]
+                          next[i] = e.target.value
+                          updateNote({ cue: JSON.stringify(next) })
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Tab') { e.preventDefault(); document.querySelector<HTMLElement>('.block-line')?.focus() }
+                        }}
+                      />
+                    </div>
+                  )
+                })}
               </div>
-              {/* Free notes area */}
-              <textarea ref={cueRef} className="flex-1 w-full resize-none outline-none p-3 text-[13px] leading-[1.85]"
-                style={{ background: 'transparent', border: 'none', fontFamily: 'IBM Plex Mono, monospace', color: 'var(--fg)', caretColor: 'var(--acc)' }}
-                placeholder={'↑ の質問への答えを\nここに書く\n\nTab で「ノート」へ'}
-                value={activeNote.cue}
-                onChange={e => updateNote({ cue: e.target.value })}
-                onKeyDown={e => {
-                  if (e.key === 'Tab') { e.preventDefault(); if (e.shiftKey) sumRef.current?.focus(); else document.querySelector<HTMLElement>('.block-line')?.focus() }
-                }} />
             </div>
 
             {/* Notes panel */}
