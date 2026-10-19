@@ -18,6 +18,17 @@ const BADGE: Partial<Record<BlockType, string>> = {
 }
 const CHAR_WARN = 50
 const CHAR_OVER = 60
+
+// Slash command definitions (shared by BlockEditor and NoteApp)
+const SLASH_CMDS = [
+  { prefix: '> ',  label: '重要・定義',    hint: '復習で隠れる',      color: 'var(--c-imp)' },
+  { prefix: '? ',  label: '疑問点',         hint: 'なぜ？どうして？',  color: 'var(--c-q)' },
+  { prefix: '! ',  label: '試験ポイント',   hint: '絶対覚えたい',      color: 'var(--c-ex)' },
+  { prefix: '=> ', label: '因果関係',       hint: '原因 → 結果',       color: 'var(--c-ca)' },
+  { prefix: '~ ',  label: '感想・反応',     hint: '面白い！なぜ！',    color: 'var(--c-rx)' },
+  { prefix: '- ',  label: '通常メモ',       hint: '普通の箇条書き',    color: 'var(--fg3)' },
+]
+
 function detectType(text: string): BlockType {
   for (const [p, t] of Object.entries(PREFIXES)) {
     if (text.startsWith(p)) return t
@@ -38,11 +49,9 @@ function BlockEditor({
   tabPrev?: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
-
-  // Keep DOM in sync with blocks prop
-  // We manage the DOM directly (contenteditable) and call onUpdate on changes.
-  // To avoid cursor jumps, we only re-render when the blocks list structure changes
-  // (added/removed blocks), not on every keystroke.
+  const [slashMenu, setSlashMenu] = useState<{
+    blockId: string; top: number; left: number; selectedIdx: number
+  } | null>(null)
 
   function getBlockEls(): HTMLDivElement[] {
     if (!containerRef.current) return []
@@ -64,8 +73,6 @@ function BlockEditor({
   }
 
   function setTextOf(el: HTMLDivElement, text: string) {
-    const children = [...el.childNodes].filter(n => n.nodeType !== Node.TEXT_NODE)
-    // Remove old text nodes
     ;[...el.childNodes].forEach(n => { if (n.nodeType === Node.TEXT_NODE) n.remove() })
     el.insertBefore(document.createTextNode(text), el.firstChild)
   }
@@ -76,7 +83,6 @@ function BlockEditor({
     el.dataset.type = type
     const badge = el.querySelector<HTMLSpanElement>('.block-badge')
     if (badge) badge.textContent = BADGE[type] ?? ''
-    // update char count
     const counter = el.querySelector<HTMLSpanElement>('.char-count')
     if (counter) {
       const len = text.length
@@ -102,7 +108,7 @@ function BlockEditor({
     div.spellcheck = true
     div.dataset.id = block.id
     div.dataset.type = block.type
-    div.dataset.ph = '行を入力… (> 定義  ? 疑問  ! 試験  => 因果  ~ 感想)'
+    div.dataset.ph = '入力 または / でブロック種類を選ぶ'
     div.appendChild(document.createTextNode(block.content))
 
     const badge = document.createElement('span')
@@ -117,7 +123,6 @@ function BlockEditor({
     counter.dataset.warn = len >= CHAR_OVER ? 'over' : len >= CHAR_WARN ? 'warn' : 'ok'
     div.appendChild(counter)
 
-    // mask layer (always present, shown via CSS class)
     const mask = document.createElement('div')
     mask.className = 'mask-cover'
     mask.textContent = 'クリックで表示'
@@ -126,13 +131,25 @@ function BlockEditor({
     return div
   }
 
+  // Slash command: apply selected prefix
+  function selectSlashCmd(prefix: string) {
+    if (!slashMenu) return
+    const el = containerRef.current?.querySelector<HTMLDivElement>(`[data-id="${slashMenu.blockId}"]`)
+    if (el) {
+      setTextOf(el, prefix)
+      updateType(el)
+      placeCaretEnd(el)
+    }
+    setSlashMenu(null)
+    onUpdate(readBlocks())
+  }
+
   // Initial render and block list sync
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
     const existing = getBlockEls()
 
-    // Reconcile: add missing, remove extra
     if (existing.length === 0 || blocks.length === 0) {
       container.innerHTML = ''
       blocks.forEach(b => container.appendChild(createBlockEl(b)))
@@ -143,12 +160,10 @@ function BlockEditor({
       return
     }
 
-    // Simple reconcile: if IDs match, update content only if different
     const existingIds = existing.map(e => e.dataset.id)
     const blockIds = blocks.map(b => b.id)
 
     if (JSON.stringify(existingIds) !== JSON.stringify(blockIds)) {
-      // Structure changed — full re-render
       const focused = container.querySelector<HTMLDivElement>(':focus')
       const focusedId = focused?.dataset.id
       container.innerHTML = ''
@@ -178,6 +193,32 @@ function BlockEditor({
     const target = e.target as HTMLDivElement
     if (!target.classList.contains('block-line')) return
 
+    // Slash menu keyboard navigation
+    if (slashMenu) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        const el = containerRef.current?.querySelector<HTMLDivElement>(`[data-id="${slashMenu.blockId}"]`)
+        if (el) { setTextOf(el, ''); updateType(el); placeCaretEnd(el) }
+        setSlashMenu(null)
+        return
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSlashMenu(m => m ? { ...m, selectedIdx: (m.selectedIdx + 1) % SLASH_CMDS.length } : m)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSlashMenu(m => m ? { ...m, selectedIdx: (m.selectedIdx - 1 + SLASH_CMDS.length) % SLASH_CMDS.length } : m)
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        selectSlashCmd(SLASH_CMDS[slashMenu.selectedIdx].prefix)
+        return
+      }
+    }
+
     if (e.key === 'Tab') {
       e.preventDefault()
       if (e.shiftKey) tabPrev?.()
@@ -205,6 +246,7 @@ function BlockEditor({
     }
 
     if (e.key === 'Backspace') {
+      if (slashMenu) setSlashMenu(null)
       const text = textOf(target)
       const sel = window.getSelection()
       const atStart = sel?.isCollapsed && sel.anchorOffset === 0
@@ -216,7 +258,6 @@ function BlockEditor({
           const prev = els[idx - 1]
           const prevText = textOf(prev)
           if (text && atStart) {
-            // Merge current into prev
             setTextOf(prev, prevText + text)
             updateType(prev)
           }
@@ -231,6 +272,19 @@ function BlockEditor({
   function handleInput(e: React.FormEvent<HTMLDivElement>) {
     const target = e.target as HTMLDivElement
     if (!target.classList.contains('block-line')) return
+    const text = textOf(target)
+
+    // Show slash command menu when / typed at start of block
+    if (text === '/') {
+      const rect = target.getBoundingClientRect()
+      setSlashMenu({ blockId: target.dataset.id!, top: rect.bottom, left: rect.left, selectedIdx: 0 })
+      return // Don't update type yet
+    } else if (slashMenu && slashMenu.blockId === target.dataset.id && !text.startsWith('/')) {
+      setSlashMenu(null)
+    } else if (slashMenu && slashMenu.blockId !== target.dataset.id) {
+      setSlashMenu(null)
+    }
+
     updateType(target)
     onUpdate(readBlocks())
   }
@@ -244,12 +298,10 @@ function BlockEditor({
     const idx = getBlockEls().indexOf(target)
     const curBlocks = readBlocks()
 
-    // First line merges into current block
     const cur = curBlocks[idx]
     const updated = [...curBlocks]
     updated[idx] = { ...cur, content: cur.content + lines[0], type: detectType(cur.content + lines[0]) }
 
-    // Remaining lines become new blocks
     const extra: Block[] = lines.slice(1).map(l => ({
       id: uid(), type: detectType(l), content: l,
     }))
@@ -267,16 +319,64 @@ function BlockEditor({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="block-editor flex-1 overflow-y-auto p-2 min-h-0 outline-none"
-      onKeyDown={handleKeyDown}
-      onInput={handleInput}
-      onPaste={handlePaste}
-      onClick={handleClick}
-      onFocus={() => onFocusChange?.(true)}
-      onBlur={() => onFocusChange?.(false)}
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="block-editor flex-1 overflow-y-auto p-2 min-h-0 outline-none"
+        onKeyDown={handleKeyDown}
+        onInput={handleInput}
+        onPaste={handlePaste}
+        onClick={handleClick}
+        onFocus={() => onFocusChange?.(true)}
+        onBlur={() => onFocusChange?.(false)}
+      />
+      {/* Slash command picker */}
+      {slashMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: slashMenu.top + 4,
+            left: slashMenu.left,
+            zIndex: 200,
+            background: 'var(--surf)',
+            border: '1px solid var(--edge)',
+            borderRadius: 10,
+            boxShadow: '0 6px 24px rgba(0,0,0,.13)',
+            minWidth: 260,
+            overflow: 'hidden',
+            fontFamily: 'inherit',
+          }}
+        >
+          <div style={{ padding: '6px 12px 5px', fontSize: 10, color: 'var(--fg3)', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '.08em', textTransform: 'uppercase', borderBottom: '1px solid var(--edge)' }}>
+            ブロックの種類を選ぶ
+          </div>
+          {SLASH_CMDS.map((cmd, i) => (
+            <div
+              key={cmd.prefix}
+              onMouseDown={e => { e.preventDefault(); selectSlashCmd(cmd.prefix) }}
+              style={{
+                padding: '9px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                background: i === slashMenu.selectedIdx ? 'var(--acc-dim)' : 'transparent',
+                borderLeft: `3px solid ${i === slashMenu.selectedIdx ? 'var(--acc)' : 'transparent'}`,
+              }}
+            >
+              <span style={{ color: cmd.color, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, width: 30, flexShrink: 0 }}>{cmd.prefix.trim()}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>{cmd.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--fg3)', marginTop: 1 }}>{cmd.hint}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ padding: '5px 12px 6px', fontSize: 10, color: 'var(--fg3)', fontFamily: 'IBM Plex Mono, monospace', borderTop: '1px solid var(--edge)' }}>
+            ↑↓ 選択 · Enter 確定 · Esc 閉じる
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -296,7 +396,6 @@ export default function NoteApp() {
   const cueRef = useRef<HTMLTextAreaElement>(null)
   const sumRef = useRef<HTMLTextAreaElement>(null)
 
-  // Active note derived
   const activeNote = notes.find(n => n.id === activeId) ?? null
 
   // ── Load ──────────────────────────────────────────────────────────────────
@@ -306,21 +405,24 @@ export default function NoteApp() {
       setNotes(saved)
       setActiveId(aid ?? saved[0].id)
     } else {
+      // Realistic demo note showing how a real lecture looks
       const demoBlocks: Block[] = [
-        { id: uid(), type: 'normal',    content: '- ここにノートを入力します（行頭に記号を付けて種類を変えられます）' },
-        { id: uid(), type: 'important', content: '> 重要・定義：行頭に「> 」で青くハイライト。復習モードでは隠れます' },
-        { id: uid(), type: 'question',  content: '? 疑問点：行頭に「? 」でオレンジ。後でキュー欄に書き写す' },
-        { id: uid(), type: 'exam',      content: '! 試験に出る：行頭に「! 」で赤。絶対覚えたい内容に' },
-        { id: uid(), type: 'cause',     content: '=> 因果関係：行頭に「=> 」で緑。原因→結果の流れを表す' },
-        { id: uid(), type: 'reaction',  content: '~ 感想・リアクション：行頭に「~ 」で紫。「面白い！」「なぜ？」など思考の痕跡を残す' },
+        { id: uid(), type: 'normal',    content: '- 今日の講義メモ ↓ このように書いていきます' },
+        { id: uid(), type: 'important', content: '> 自然選択：環境に適した個体が生存・繁殖しやすい仕組み（ダーウィン）' },
+        { id: uid(), type: 'question',  content: '? なぜ突然変異は「ランダム」に起きるのか？DNAのどの部分が壊れる？' },
+        { id: uid(), type: 'cause',     content: '=> 突然変異 → 形質の多様性 → 自然選択 → 進化' },
+        { id: uid(), type: 'exam',      content: '! 「適者生存」は「強者生存」ではない。環境への適合度が重要' },
+        { id: uid(), type: 'reaction',  content: '~ 病気への耐性も「選択圧」なんだ！面白い。抗生物質耐性菌もこれか' },
         { id: uid(), type: 'normal',    content: '' },
-        { id: uid(), type: 'normal',    content: '- Enter で新しい行、Backspace で行を結合、Tab でキュー欄へ移動' },
-        { id: uid(), type: 'normal',    content: '- Ctrl+R で復習モード（重要ブロックが隠れる）、Ctrl+/ でヘルプ' },
+        { id: uid(), type: 'normal',    content: '--- 書き方ガイド ---' },
+        { id: uid(), type: 'normal',    content: '- Enter で新しい行　/ でブロック種類を選ぶ　Backspace で行を結合' },
+        { id: uid(), type: 'normal',    content: '- Ctrl+R で復習モード（> の重要ブロックが隠れる）　Ctrl+/ でヘルプ' },
       ]
       const first: Note = {
-        id: uid(), subject: 'ContextNote', topic: '使い方ガイド', session: '第1回', date: todayStr(),
-        cue: 'キーワードや問いをここに書く\n\n例：重要なブロックとは？\n→ 復習で隠れる定義・概念',
-        summary: '講義後：全体を2〜3文で要約する。コーネル式は「ノート→キュー→まとめ」の3ゾーン構成。',
+        id: uid(),
+        subject: '生物学', topic: '進化論と自然選択', session: '第3回', date: todayStr(),
+        cue: '重要な問い：\n\n自然選択とは何か？\n→ 環境適合度の高い個体が生き残る\n\n突然変異はなぜ起きる？',
+        summary: '自然選択は「強者」ではなく「環境に適した者」が残る仕組み。突然変異→多様性→選択→進化の流れが核心。',
         blocks: demoBlocks, created: Date.now(), updated: Date.now(),
       }
       setNotes([first])
@@ -394,6 +496,7 @@ export default function NoteApp() {
       else if (b.type === 'question') lines.push(`- ❓ ${c.replace(/^\? /, '')}`)
       else if (b.type === 'exam')     lines.push(`- ⭐ ${c.replace(/^! /, '')}`)
       else if (b.type === 'cause')    lines.push(`- ⇒ ${c.replace(/^=> /, '')}`)
+      else if (b.type === 'reaction') lines.push(`- ～ ${c.replace(/^~ /, '')}`)
       else lines.push(`- ${c.replace(/^- /, '')}`)
     })
     if (activeNote.cue) {
@@ -440,7 +543,7 @@ export default function NoteApp() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewMode, showHelp, showExport, notes, activeId])
 
-  // ── Action bar (mobile prefix insert) ────────────────────────────────────
+  // ── Insert prefix (mobile action bar + empty state card) ──────────────────
   function insertPrefix(prefix: string) {
     const els = document.querySelectorAll<HTMLDivElement>('.block-line')
     let target = document.activeElement as HTMLDivElement | null
@@ -448,7 +551,7 @@ export default function NoteApp() {
       target = els[els.length - 1] || null
     }
     if (!target) {
-      updateNote({ blocks: [{ id: uid(), type: detectType(prefix + 'テキスト'), content: prefix }] })
+      updateNote({ blocks: [{ id: uid(), type: detectType(prefix), content: prefix }] })
       return
     }
     let text = ''
@@ -473,6 +576,9 @@ export default function NoteApp() {
   }
 
   if (!activeNote) return null
+
+  // Whether notes area is empty (show hint card)
+  const notesEmpty = activeNote.blocks.every(b => !b.content.trim())
 
   const noteTitle = (n: Note) =>
     (n.subject || n.topic) ? `${n.subject} ${n.session || ''}`.trim() : '無題'
@@ -523,6 +629,9 @@ export default function NoteApp() {
           <span className="flex items-center gap-1"><span style={{ background: 'var(--c-ex)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>! </code>試験</span>
           <span className="flex items-center gap-1"><span style={{ background: 'var(--c-ca)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>=&gt; </code>因果</span>
           <span className="flex items-center gap-1"><span style={{ background: 'var(--c-rx)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>~ </code>感想</span>
+          <span style={{ marginLeft: 'auto', color: 'var(--fg3)', fontSize: 9 }}>
+            <kbd style={{ background: 'var(--edge)', borderRadius: 3, padding: '1px 4px', fontSize: 9 }}>/</kbd> でブロック種類を選ぶ
+          </span>
         </div>
       </div>
 
@@ -590,7 +699,7 @@ export default function NoteApp() {
               </div>
               <textarea ref={cueRef} className="flex-1 w-full resize-none outline-none p-3 text-[13px] leading-[1.85]"
                 style={{ background: 'transparent', border: 'none', fontFamily: 'IBM Plex Mono, monospace', color: 'var(--fg)', caretColor: 'var(--acc)' }}
-                placeholder={'講義後に記入\n\nキーワードや問いを書く\n\nTab で「ノート」へ'}
+                placeholder={'講義後に記入\n\nキーワードや問いを書く\n例：なぜ〜？　〜とは？\n\nTab で「ノート」へ'}
                 value={activeNote.cue}
                 onChange={e => updateNote({ cue: e.target.value })}
                 onKeyDown={e => {
@@ -609,6 +718,41 @@ export default function NoteApp() {
                 <span className="pact text-[9px] px-1 rounded border opacity-0 transition-opacity"
                   style={{ background: 'var(--acc-dim)', borderColor: 'var(--acc)', color: 'var(--acc)' }}>ACTIVE</span>
               </div>
+
+              {/* Empty state hint card */}
+              {notesEmpty && !reviewMode && (
+                <div style={{ margin: '14px 14px 0', padding: '14px 16px', borderRadius: 10, border: '1px dashed var(--edge)', background: 'rgba(47,82,212,0.03)', flexShrink: 0 }}>
+                  <div style={{ fontSize: 12, color: 'var(--fg2)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>何を書きますか？　クリックして始める、または</span>
+                    <kbd style={{ background: 'var(--edge)', borderRadius: 4, padding: '1px 6px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }}>/</kbd>
+                    <span>で選ぶ</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {SLASH_CMDS.map(cmd => (
+                      <button
+                        key={cmd.prefix}
+                        onClick={() => insertPrefix(cmd.prefix)}
+                        style={{
+                          background: 'transparent',
+                          border: `1px solid var(--edge)`,
+                          borderRadius: 7,
+                          padding: '8px 10px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'border-color .12s, background .12s',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = cmd.color; (e.currentTarget as HTMLElement).style.background = 'rgba(47,82,212,0.04)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--edge)'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                      >
+                        <div style={{ color: cmd.color, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, marginBottom: 3 }}>{cmd.prefix.trim()}</div>
+                        <div style={{ fontSize: 12, color: 'var(--fg)', fontWeight: 500 }}>{cmd.label}</div>
+                        <div style={{ fontSize: 10, color: 'var(--fg3)', marginTop: 1 }}>{cmd.hint}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <BlockEditor
                 blocks={activeNote.blocks}
                 onUpdate={blocks => updateNote({ blocks })}
@@ -672,9 +816,9 @@ export default function NoteApp() {
             onClick={e => e.stopPropagation()}>
             <h2 className="text-[15px] font-bold mb-4">⌨ キーボードショートカット</h2>
             {[
-              ['パネル移動', [['Tab', '次のパネルへ（ノート→キュー→まとめ）'], ['Shift+Tab', '前のパネルへ'], ['Ctrl+1', 'キュー欄'], ['Ctrl+2', 'ノート欄'], ['Ctrl+3', 'まとめ欄']]],
+              ['パネル移動', [['Tab', '次のパネルへ（ノート→まとめ→キュー）'], ['Shift+Tab', '前のパネルへ'], ['Ctrl+1', 'キュー欄'], ['Ctrl+2', 'ノート欄'], ['Ctrl+3', 'まとめ欄']]],
               ['アプリ操作', [['Ctrl+R', '復習モード（重要ブロックをマスク）'], ['Ctrl+S', '手動保存'], ['Ctrl+N', '新規ノート'], ['Ctrl+B', 'サイドバー開閉'], ['Ctrl+/', 'ヘルプ'], ['Escape', '閉じる/終了']]],
-              ['セマンティックプレフィックス', [['> テキスト', '重要・定義（復習マスク対象）'], ['? テキスト', '疑問点'], ['! テキスト', '試験に出る'], ['=> テキスト', '因果関係'], ['~ テキスト', '感想・リアクション（面白い！なぜ？など）'], ['- テキスト', '通常ノート']]],
+              ['ブロック入力', [['/', '行頭で入力 → ブロック種類ピッカーを開く'], ['↑↓ + Enter', 'ピッカーで選択・確定'], ['> テキスト', '重要・定義（復習マスク対象）'], ['? テキスト', '疑問点'], ['! テキスト', '試験に出る'], ['=> テキスト', '因果関係'], ['~ テキスト', '感想・リアクション'], ['- テキスト', '通常ノート']]],
             ].map(([section, rows]) => (
               <div key={section as string} className="mb-4">
                 <div style={{ color: 'var(--fg3)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>{section as string}</div>
