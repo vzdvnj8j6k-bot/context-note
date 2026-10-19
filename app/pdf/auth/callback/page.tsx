@@ -2,17 +2,21 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 
 export default function PdfAuthCallback() {
   const router = useRouter()
 
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get('code')
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(() => {
-        router.replace('/pdf')
-      })
+    // For implicit flow: token is in URL hash, supabase client auto-detects it.
+    // For PKCE flow: exchange the code.
+    const params = new URLSearchParams(window.location.search)
+    const hashParams = new URLSearchParams(window.location.hash.replace('#', ''))
+    const code = params.get('code')
+    const accessToken = hashParams.get('access_token')
+
+    if (accessToken || code) {
+      // Give the supabase client a moment to process the hash/code
+      setTimeout(() => router.replace('/pdf'), 500)
     } else {
       router.replace('/pdf')
     }

@@ -55,7 +55,7 @@ export default function PdfHomePage() {
   function handleGoogleLogin() {
     pdfAuthClient.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/pdf` },
+      options: { redirectTo: `${window.location.origin}/pdf/auth/callback` },
     })
   }
 
