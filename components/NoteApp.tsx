@@ -78,14 +78,16 @@ function BlockEditor({
   }
 
   function textOf(el: HTMLDivElement): string {
+    const textSpan = el.querySelector<HTMLElement>('.block-text') ?? el
     let t = ''
-    el.childNodes.forEach(n => { if (n.nodeType === Node.TEXT_NODE) t += n.textContent })
+    textSpan.childNodes.forEach(n => { if (n.nodeType === Node.TEXT_NODE) t += n.textContent })
     return t
   }
 
   function setTextOf(el: HTMLDivElement, text: string) {
-    ;[...el.childNodes].forEach(n => { if (n.nodeType === Node.TEXT_NODE) n.remove() })
-    el.insertBefore(document.createTextNode(text), el.firstChild)
+    const textSpan = el.querySelector<HTMLElement>('.block-text') ?? el
+    ;[...textSpan.childNodes].forEach(n => { if (n.nodeType === Node.TEXT_NODE) n.remove() })
+    textSpan.insertBefore(document.createTextNode(text), textSpan.firstChild)
   }
 
   function updateType(el: HTMLDivElement) {
@@ -102,16 +104,17 @@ function BlockEditor({
   }
 
   function placeCaretEnd(el: HTMLElement) {
-    el.focus()
+    const textSpan = el.querySelector<HTMLElement>('.block-text') ?? el
+    textSpan.focus()
     const sel = window.getSelection()
     if (!sel) return
-    const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text | undefined
+    const textNode = Array.from(textSpan.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text | undefined
     const range = document.createRange()
     if (textNode) {
       range.setStart(textNode, textNode.length)
       range.collapse(true)
     } else {
-      range.selectNodeContents(el)
+      range.selectNodeContents(textSpan)
       range.collapse(false)
     }
     sel.removeAllRanges()
@@ -121,32 +124,32 @@ function BlockEditor({
   function createBlockEl(block: Block): HTMLDivElement {
     const div = document.createElement('div')
     div.className = 'block-line'
-    div.contentEditable = 'true'
-    div.spellcheck = true
     div.dataset.id = block.id
     div.dataset.type = block.type
     div.dataset.level = String(block.level ?? 0)
-    div.dataset.ph = '入力 または / でブロック種類を選ぶ'
-    // Strip the stored prefix so only the content text is shown
-    const storedPrefix = TYPE_TO_PREFIX[block.type] ?? ''
-    const displayText = block.content.startsWith(storedPrefix) ? block.content.slice(storedPrefix.length) : block.content
-    div.appendChild(document.createTextNode(displayText))
 
     const badge = document.createElement('span')
     badge.className = 'block-badge'
-    badge.setAttribute('contenteditable', 'false')
     badge.textContent = BADGE[block.type] ?? ''
     div.appendChild(badge)
 
+    // The ONLY contenteditable element — badge/counter are outside it
+    const textSpan = document.createElement('span')
+    textSpan.className = 'block-text'
+    textSpan.contentEditable = 'true'
+    textSpan.spellcheck = true
+    textSpan.dataset.ph = '入力 または / でブロック種類を選ぶ'
+    const storedPrefix = TYPE_TO_PREFIX[block.type] ?? ''
+    const displayText = block.content.startsWith(storedPrefix) ? block.content.slice(storedPrefix.length) : block.content
+    if (displayText) textSpan.appendChild(document.createTextNode(displayText))
+    div.appendChild(textSpan)
+
     const counter = document.createElement('span')
     counter.className = 'char-count'
-    counter.setAttribute('contenteditable', 'false')
-    const len = block.content.length
+    const len = displayText.length
     counter.textContent = `${len}`
     counter.dataset.warn = len >= CHAR_OVER ? 'over' : len >= CHAR_WARN ? 'warn' : 'ok'
     div.appendChild(counter)
-
-    // (mask-cover removed — review mode uses ghost-text overlay)
 
     return div
   }
@@ -185,7 +188,7 @@ function BlockEditor({
     const blockIds = blocks.map(b => b.id)
 
     if (JSON.stringify(existingIds) !== JSON.stringify(blockIds)) {
-      const focused = container.querySelector<HTMLDivElement>(':focus')
+      const focused = container.querySelector(':focus')?.closest<HTMLDivElement>('.block-line')
       const focusedId = focused?.dataset.id
       container.innerHTML = ''
       blocks.forEach(b => container.appendChild(createBlockEl(b)))
@@ -200,6 +203,8 @@ function BlockEditor({
   // Review mode: ghost text (faint original) + user types recall on top
   useEffect(() => {
     getBlockEls().forEach(el => {
+      const textSpan = el.querySelector<HTMLElement>('.block-text')
+      if (!textSpan) return
       if (reviewMode) {
         if (el.dataset.reviewOrig !== undefined) return // already set up
         const origText = textOf(el)
@@ -208,28 +213,26 @@ function BlockEditor({
         ghost.className = 'ghost-text'
         ghost.setAttribute('contenteditable', 'false')
         ghost.textContent = origText
-        el.insertBefore(ghost, el.firstChild)
+        textSpan.insertBefore(ghost, textSpan.firstChild)
         setTextOf(el, '')
         el.classList.add('masked')
-        el.contentEditable = 'true'
       } else {
         el.classList.remove('masked')
-        const ghost = el.querySelector<HTMLSpanElement>('.ghost-text')
+        const ghost = textSpan.querySelector<HTMLSpanElement>('.ghost-text')
         const origText = el.dataset.reviewOrig
         if (ghost) ghost.remove()
         if (origText !== undefined) {
           setTextOf(el, origText)
           delete el.dataset.reviewOrig
         }
-        el.contentEditable = 'true'
       }
     })
   }, [reviewMode, blocks])
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.nativeEvent.isComposing || e.keyCode === 229) return  // let IME finish composing (229 = Android Chrome IME)
-    const target = e.target as HTMLDivElement
-    if (!target.classList.contains('block-line')) return
+    const blockLine = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
+    if (!blockLine) return
 
     // In review mode: allow typing, block structural changes
     if (reviewMode) {
@@ -238,7 +241,7 @@ function BlockEditor({
       if (e.key === 'Backspace') {
         const sel = window.getSelection()
         const atStart = sel?.isCollapsed && sel.anchorOffset === 0
-        if (atStart && getBlockEls().indexOf(target) > 0) { e.preventDefault(); return }
+        if (atStart && getBlockEls().indexOf(blockLine) > 0) { e.preventDefault(); return }
       }
       return // skip all other custom handlers; browser default (typing) still works
     }
@@ -278,16 +281,16 @@ function BlockEditor({
 
     if (e.key === 'Tab') {
       e.preventDefault()
-      const text = textOf(target)
+      const text = textOf(blockLine)
       if (!text) {
         // Empty block: switch panel
         if (e.shiftKey) tabPrev?.()
         else tabNext?.()
       } else {
         // Non-empty block: indent / outdent
-        const currentLevel = parseInt(target.dataset.level ?? '0') || 0
+        const currentLevel = parseInt(blockLine.dataset.level ?? '0') || 0
         const newLevel = e.shiftKey ? Math.max(0, currentLevel - 1) : Math.min(3, currentLevel + 1)
-        target.dataset.level = String(newLevel)
+        blockLine.dataset.level = String(newLevel)
         onUpdate(readBlocks())
       }
       return
@@ -298,7 +301,7 @@ function BlockEditor({
       const newId = uid()
       const newBlock: Block = { id: newId, type: 'normal', content: '' }
       const curBlocks = readBlocks()
-      const idx = getBlockEls().indexOf(target)
+      const idx = getBlockEls().indexOf(blockLine)
       const updated = [
         ...curBlocks.slice(0, idx + 1),
         newBlock,
@@ -314,12 +317,12 @@ function BlockEditor({
 
     if (e.key === 'Backspace') {
       if (slashMenu) setSlashMenu(null)
-      const text = textOf(target)
+      const text = textOf(blockLine)
       const sel = window.getSelection()
       const atStart = sel?.isCollapsed && sel.anchorOffset === 0
       if (text === '' || atStart) {
         const els = getBlockEls()
-        const idx = els.indexOf(target)
+        const idx = els.indexOf(blockLine)
         if (idx > 0) {
           e.preventDefault()
           const prev = els[idx - 1]
@@ -329,7 +332,7 @@ function BlockEditor({
             updateType(prev)
           }
           const curBlocks = readBlocks()
-          onUpdate(curBlocks.filter(b => b.id !== target.dataset.id))
+          onUpdate(curBlocks.filter(b => b.id !== blockLine.dataset.id))
           setTimeout(() => placeCaretEnd(prev), 0)
         }
       }
@@ -339,18 +342,18 @@ function BlockEditor({
   function handleInput(e: React.FormEvent<HTMLDivElement>) {
     if (reviewMode) return  // typing in review mode is ephemeral practice, don't save
     if ((e.nativeEvent as InputEvent).isComposing) return  // let IME finish composing
-    const target = e.target as HTMLDivElement
-    if (!target.classList.contains('block-line')) return
-    const text = textOf(target)
+    const blockLine = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
+    if (!blockLine) return
+    const text = textOf(blockLine)
 
     // Show slash command menu when / typed at start of block
     if (text === '/') {
-      const rect = target.getBoundingClientRect()
-      setSlashMenu({ blockId: target.dataset.id!, top: rect.bottom, left: rect.left, selectedIdx: 0 })
+      const rect = blockLine.getBoundingClientRect()
+      setSlashMenu({ blockId: blockLine.dataset.id!, top: rect.bottom, left: rect.left, selectedIdx: 0 })
       return // Don't update type yet
-    } else if (slashMenu && slashMenu.blockId === target.dataset.id && !text.startsWith('/')) {
+    } else if (slashMenu && slashMenu.blockId === blockLine.dataset.id && !text.startsWith('/')) {
       setSlashMenu(null)
-    } else if (slashMenu && slashMenu.blockId !== target.dataset.id) {
+    } else if (slashMenu && slashMenu.blockId !== blockLine.dataset.id) {
       setSlashMenu(null)
     }
 
@@ -358,25 +361,25 @@ function BlockEditor({
     let detectedByPrefix = false
     for (const [prefix, type] of Object.entries(PREFIXES)) {
       if (text.startsWith(prefix)) {
-        target.dataset.type = type
-        setTextOf(target, text.slice(prefix.length))
-        updateType(target)
-        placeCaretEnd(target)
+        blockLine.dataset.type = type
+        setTextOf(blockLine, text.slice(prefix.length))
+        updateType(blockLine)
+        placeCaretEnd(blockLine)
         detectedByPrefix = true
         break
       }
     }
-    if (!detectedByPrefix) updateType(target)
+    if (!detectedByPrefix) updateType(blockLine)
     onUpdate(readBlocks())
   }
 
   function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
     e.preventDefault()
-    const target = e.target as HTMLDivElement
-    if (!target.classList.contains('block-line')) return
+    const blockLine = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
+    if (!blockLine) return
     const text = e.clipboardData.getData('text/plain')
     const lines = text.split('\n')
-    const idx = getBlockEls().indexOf(target)
+    const idx = getBlockEls().indexOf(blockLine)
     const curBlocks = readBlocks()
 
     const cur = curBlocks[idx]
@@ -391,11 +394,14 @@ function BlockEditor({
   }
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
-    const blockTarget = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
-    if (!blockTarget) {
+    const blockLine = (e.target as HTMLElement).closest<HTMLDivElement>('.block-line')
+    if (!blockLine) {
       // Tapped on empty area below blocks — focus the last block so keyboard opens
       const els = getBlockEls()
       if (els.length > 0) placeCaretEnd(els[els.length - 1])
+    } else if (!(e.target as HTMLElement).closest('.block-text')) {
+      // Clicked badge or counter, not the text — focus the text span
+      placeCaretEnd(blockLine)
     }
   }
 
@@ -815,10 +821,9 @@ ${buildNoteText(activeNote)}
   // ── Insert prefix (mobile action bar + empty state card) ──────────────────
   function insertPrefix(prefix: string) {
     const els = document.querySelectorAll<HTMLDivElement>('.block-line')
-    let target = document.activeElement as HTMLDivElement | null
-    if (!target?.classList.contains('block-line')) {
-      target = els[els.length - 1] || null
-    }
+    // activeElement is .block-text; walk up to .block-line
+    let target = (document.activeElement as HTMLElement)?.closest<HTMLDivElement>('.block-line')
+      ?? (els.length > 0 ? els[els.length - 1] : null)
     if (!target) {
       // No blocks at all: append one with the requested type
       if (activeNote) {
@@ -845,17 +850,18 @@ ${buildNoteText(activeNote)}
       })
       updateNote({ blocks: updatedBlocks })
     }
-    target.focus()
-    // Place caret in the text node (not after badge/counter spans)
+    // Focus .block-text and place caret at end of its text node
+    const textSpan = target.querySelector<HTMLElement>('.block-text') ?? target
+    textSpan.focus()
     const sel = window.getSelection()
     if (sel) {
-      const textNode = Array.from(target.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text | undefined
+      const textNode = Array.from(textSpan.childNodes).find(n => n.nodeType === Node.TEXT_NODE) as Text | undefined
       const range = document.createRange()
       if (textNode) {
         range.setStart(textNode, textNode.length)
         range.collapse(true)
       } else {
-        range.selectNodeContents(target)
+        range.selectNodeContents(textSpan)
         range.collapse(false)
       }
       sel.removeAllRanges()

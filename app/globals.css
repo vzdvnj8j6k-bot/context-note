@@ -34,19 +34,24 @@ body {
   font-size: 13px;
   line-height: 1.85;
   margin-bottom: 1px;
-  outline: none;
   padding: 3px 10px 3px 10px;
+  position: relative;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+/* The only contenteditable element — badge/counter are siblings outside it */
+.block-text {
+  display: block;
+  outline: none;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: break-word;
   min-height: 1.85em;
-  position: relative;
-  transition: background 0.12s, border-color 0.12s;
   -webkit-user-select: text;
   user-select: text;
   touch-action: manipulation;
 }
-.block-line:empty::before {
+.block-text:empty::before {
   content: attr(data-ph);
   color: var(--fg3);
   font-style: italic;
@@ -149,7 +154,8 @@ body {
 
 /* Mobile: larger text and compact badges */
 @media (max-width: 700px) {
-  .block-line { font-size: 16px; line-height: 1.7; }
+  .block-line { font-size: 16px; }
+  .block-text { line-height: 1.7; }
   .block-line[data-type="important"],
   .block-line[data-type="question"],
   .block-line[data-type="exam"],
