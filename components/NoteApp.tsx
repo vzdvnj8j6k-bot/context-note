@@ -17,7 +17,7 @@ const PREFIXES: Record<string, BlockType> = {
 }
 // Reverse map: type → prefix for reconstruct on save
 const TYPE_TO_PREFIX: Partial<Record<BlockType, string>> = {
-  important: '> ', question: '? ', exam: '! ', cause: '=> ', reaction: '~ ',
+  important: '> ', question: '? ', exam: '! ', cause: '=> ', reaction: '~ ', normal: '- ',
 }
 const BADGE: Partial<Record<BlockType, string>> = {
   important: '重要', question: '疑問', exam: '試験', cause: '因果', reaction: '感想',
@@ -436,7 +436,7 @@ export default function NoteApp() {
   const [exportText, setExportText] = useState('')
   const [copied, setCopied] = useState(false)
   const [savedFlash, setSavedFlash] = useState(false)
-  const [mobPanel, setMobPanel] = useState<'notes' | 'cue'>('notes')
+  const [mobPanel, setMobPanel] = useState<'notes' | 'cue' | 'summary'>('notes')
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -814,9 +814,32 @@ ${buildNoteText(activeNote)}
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
 
+      {/* Mobile-only compact header */}
+      <div className="hidden max-[700px]:flex flex-col flex-shrink-0"
+        style={{ background: 'var(--deck)', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+        <div className="flex items-center gap-2 px-3 py-2">
+          <input className={`${miBase} flex-1 min-w-0 font-bold text-sm`} style={{ fontFamily: 'inherit' }}
+            placeholder="科目名" value={activeNote.subject}
+            onChange={e => updateNote({ subject: e.target.value })} />
+          <input className={`${miBase} w-14 flex-shrink-0 text-center text-sm`} style={{ fontFamily: 'IBM Plex Mono, monospace' }}
+            placeholder="第?" value={activeNote.session}
+            onChange={e => updateNote({ session: e.target.value })} />
+          <button className={hbtn()} onClick={newNote} title="新規ノート" style={{ fontSize: 18, lineHeight: 1, padding: '2px 8px' }}>+</button>
+          <button className={hbtn(showAI)} onClick={() => { setShowAI(p => !p); setShareUrl('') }} title="AI解説" style={{ fontSize: 12 }}>AI</button>
+          <button className={hbtn()} onClick={shareNote} disabled={shareLoading} title="共有" style={{ fontSize: 12 }}>
+            {shareLoading ? '...' : shareUrl ? '✓' : '🔗'}
+          </button>
+        </div>
+        <div className="px-3 pb-1">
+          <input className={`${miBase} w-full text-sm`} style={{ fontFamily: 'inherit' }}
+            placeholder="今日のテーマ" value={activeNote.topic}
+            onChange={e => updateNote({ topic: e.target.value })} />
+        </div>
+      </div>
+
       {/* Header */}
       <header style={{ background: 'var(--deck)', borderBottom: '1px solid rgba(255,255,255,.05)' }}
-        className="flex items-center gap-2 flex-shrink-0 px-4 py-2">
+        className="max-[700px]:hidden flex items-center gap-2 flex-shrink-0 px-4 py-2">
         <div className="flex gap-1.5 flex-1 min-w-0 flex-wrap">
           <input className={`${miBase} flex-[2] min-w-[70px] font-bold`} style={{ fontFamily: 'inherit' }}
             placeholder="科目名" value={activeNote.subject}
@@ -845,7 +868,7 @@ ${buildNoteText(activeNote)}
 
       {/* Legend — clickable to change the focused block's type */}
       <div style={{ background: 'var(--surf)', borderBottom: '1px solid var(--edge)', fontFamily: "'IBM Plex Mono', monospace", color: 'var(--fg3)' }}
-        className="flex gap-1 flex-shrink-0 px-3 py-1 overflow-x-auto whitespace-nowrap text-[10px]">
+        className="max-[700px]:hidden flex gap-1 flex-shrink-0 px-3 py-1 overflow-x-auto whitespace-nowrap text-[10px]">
         {([
           ['> ',  '重要', 'var(--c-imp)', 'var(--c-imp-bg)'],
           ['? ',  '疑問', 'var(--c-q)',   'var(--c-q-bg)'],
@@ -880,13 +903,13 @@ ${buildNoteText(activeNote)}
 
       {/* Mobile tabs */}
       <div className="hidden max-[700px]:flex" style={{ background: 'var(--deck)', borderBottom: '1px solid rgba(255,255,255,.06)', flexShrink: 0 }}>
-        {(['notes', 'cue'] as const).map(tab => (
+        {([['notes', 'ノート'], ['cue', 'キュー'], ['summary', 'まとめ']] as const).map(([tab, label]) => (
           <button key={tab} onClick={() => setMobPanel(tab)}
             style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: `2px solid ${mobPanel === tab ? 'var(--acc)' : 'transparent'}`,
               color: mobPanel === tab ? '#fff' : 'rgba(255,255,255,.45)', cursor: 'pointer',
-              fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, padding: '8px 4px',
-              textTransform: 'uppercase', letterSpacing: '.06em' }}>
-            {tab === 'notes' ? 'ノート' : 'キュー'}
+              fontFamily: 'Noto Sans JP, sans-serif', fontSize: 13, padding: '10px 4px',
+              fontWeight: mobPanel === tab ? 700 : 400 }}>
+            {label}
           </button>
         ))}
       </div>
@@ -953,7 +976,7 @@ ${buildNoteText(activeNote)}
         </aside>
 
         {/* Cornell content */}
-        <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+        <div className="flex flex-col flex-1 overflow-hidden min-h-0 max-[700px]:relative">
           <div className="flex flex-1 overflow-hidden min-h-0">
 
             {/* Cue panel */}
@@ -1064,12 +1087,19 @@ ${buildNoteText(activeNote)}
                 tabPrev={() => cueRef.current?.focus()}
               />
               {/* Mobile action bar */}
-              <div className="hidden max-[700px]:flex flex-wrap gap-1 p-2 flex-shrink-0"
-                style={{ background: 'var(--deck)', borderTop: '1px solid rgba(255,255,255,.06)' }}>
-                {([['> ', '▐ 重要', 'var(--c-imp)'], ['? ', '? 疑問', 'var(--c-q)'], ['! ', '★ 試験', 'var(--c-ex)'], ['=> ', '⇒ 因果', 'var(--c-ca)'], ['~ ', '～ 感想', 'var(--c-rx)'], ['- ', '- 通常', 'rgba(255,255,255,.5)']] as [string, string, string][]).map(([p, label, col]) => (
+              <div className="hidden max-[700px]:flex gap-0 flex-shrink-0"
+                style={{ background: 'var(--deck)', borderTop: '1px solid rgba(255,255,255,.08)' }}>
+                {([
+                  ['> ', '重要', 'var(--c-imp)', 'rgba(47,82,212,.15)'],
+                  ['? ', '疑問', 'var(--c-q)', 'rgba(192,104,0,.12)'],
+                  ['! ', '試験', 'var(--c-ex)', 'rgba(176,24,24,.12)'],
+                  ['=> ', '因果', 'var(--c-ca)', 'rgba(6,132,90,.12)'],
+                  ['~ ', '感想', 'var(--c-rx)', 'rgba(124,58,237,.12)'],
+                  ['- ', 'メモ', 'rgba(255,255,255,.5)', 'transparent'],
+                ] as [string, string, string, string][]).map(([p, label, col, bg]) => (
                   <button key={p} onClick={() => insertPrefix(p)}
-                    style={{ background: 'rgba(255,255,255,.08)', border: `1px solid ${col}`, borderRadius: 5, color: col, fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, padding: '5px 10px', cursor: 'pointer' }}>
-                    {label}
+                    style={{ flex: 1, background: bg, border: 'none', borderRight: '1px solid rgba(255,255,255,.06)', color: col, fontFamily: 'Noto Sans JP, sans-serif', fontSize: 11, padding: '10px 2px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <span style={{ fontWeight: 700 }}>{label}</span>
                   </button>
                 ))}
               </div>
@@ -1078,14 +1108,17 @@ ${buildNoteText(activeNote)}
           </div>
 
           {/* Summary */}
-          <div className="panel-wrap flex flex-col flex-shrink-0" style={{ background: 'var(--surf)', borderTop: '1px solid var(--edge)' }}>
+          <div className={`panel-wrap flex flex-col flex-shrink-0
+            max-[700px]:absolute max-[700px]:inset-0 max-[700px]:z-10 max-[700px]:transition-opacity
+            ${mobPanel === 'summary' ? 'max-[700px]:opacity-100 max-[700px]:pointer-events-auto' : 'max-[700px]:opacity-0 max-[700px]:pointer-events-none'}`}
+            style={{ background: 'var(--surf)', borderTop: '1px solid var(--edge)' }}>
             <div className="flex items-center justify-between flex-shrink-0 px-3 py-1.5"
               style={{ borderBottom: '1px solid var(--edge)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--fg3)' }}>
               <span>まとめ</span>
               <span className="pact text-[9px] px-1 rounded border opacity-0 transition-opacity"
                 style={{ background: 'var(--acc-dim)', borderColor: 'var(--acc)', color: 'var(--acc)' }}>ACTIVE</span>
             </div>
-            <textarea ref={sumRef} className="w-full resize-none outline-none px-3 py-2 text-[13px] leading-[1.75]"
+            <textarea ref={sumRef} className="w-full resize-none outline-none px-3 py-2 text-[13px] leading-[1.75] max-[700px]:flex-1"
               style={{ height: 80, background: 'transparent', border: 'none', fontFamily: 'IBM Plex Mono, monospace', color: 'var(--fg)', caretColor: 'var(--acc)' }}
               placeholder="講義後：全体を2〜3文で要約する　Tab でキュー欄へ"
               value={activeNote.summary}
@@ -1098,7 +1131,7 @@ ${buildNoteText(activeNote)}
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center gap-3 flex-shrink-0 px-4 py-1 overflow-x-auto whitespace-nowrap"
+      <div className="max-[700px]:hidden flex items-center gap-3 flex-shrink-0 px-4 py-1 overflow-x-auto whitespace-nowrap"
         style={{ background: 'var(--deck)', borderTop: '1px solid rgba(255,255,255,.04)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(255,255,255,.35)' }}>
         {[['Tab', 'インデント'], ['Shift+Tab', 'アウトデント'], ['Ctrl+1/2/3', 'パネル移動'], ['Ctrl+R', '復習'], ['Ctrl+/', 'ヘルプ']].map(([k, v]) => (
           <span key={k} className="flex items-center gap-1">
