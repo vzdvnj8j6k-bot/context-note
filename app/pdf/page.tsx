@@ -4,7 +4,13 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { deleteDocument, getDocuments, getLastSession, getSession, signOut, uploadDocument } from '@/lib/pdf-db'
 import { supabase } from '@/lib/supabase'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
+
+const pdfAuthClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  { auth: { flowType: 'implicit' } }
+)
 import { Document } from '@/types/pdf'
 import type { Session } from '@supabase/supabase-js'
 import Link from 'next/link'
@@ -26,6 +32,11 @@ export default function PdfHomePage() {
       setSession(s)
       if (s) getLastSession().then(ls => setLastSession(ls))
     })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s)
+      if (s) getLastSession().then(ls => setLastSession(ls))
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   const loadDocuments = useCallback(async () => {
@@ -42,13 +53,9 @@ export default function PdfHomePage() {
   }, [session, loadDocuments])
 
   function handleGoogleLogin() {
-    const authClient = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    authClient.auth.signInWithOAuth({
+    pdfAuthClient.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/pdf/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/pdf` },
     })
   }
 
