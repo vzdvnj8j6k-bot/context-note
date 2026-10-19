@@ -759,15 +759,21 @@ export default function NoteApp() {
 
   function copyForAI() {
     if (!activeNote) return
-    const prompt = `以下の授業ノートを読んで、分かりやすく解説してください。
+    const prompt = `以下の授業ノートを読んで、「まとめ」として保存できる形式でまとめてください。
 
 ${buildNoteText(activeNote)}
 
 ---
-お願いしたいこと：
-1. このノートの一番大事なポイントを3〜5つ、分かりやすく整理してください
-2. 難しい言葉や概念があれば、身近な例を使って説明してください
-3. 試験に出そうな問いと答えを2〜3つ作ってください`
+【出力形式】そのままコピーして貼り付けられるよう、シンプルなテキストで書いてください。
+
+■ 重要ポイント
+・（箇条書きで3〜5つ）
+
+■ キーワード
+・用語: 一言説明
+
+■ 試験対策
+・よく出る問いと答えを2〜3つ`
 
     navigator.clipboard.writeText(prompt).then(() => {
       setAiCopied(true)
@@ -1500,25 +1506,10 @@ ${buildNoteText(activeNote)}
               <span className="font-bold text-[14px]">AIに解説してもらう</span>
               <button onClick={() => setShowAI(false)} style={{ background: 'transparent', border: 'none', color: 'var(--fg3)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
             </div>
-            <div className="p-5 flex flex-col gap-4">
-              <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.8 }}>
-                ノートの内容をコピーして、お使いのAIに貼り付けてください。
-              </div>
+            <div className="p-5 flex flex-col gap-3">
 
               {/* Step 1 */}
-              <button
-                onClick={copyForAI}
-                className="w-full py-3 rounded-lg text-[14px] font-bold cursor-pointer transition-colors"
-                style={{
-                  background: aiCopied ? 'rgba(90,200,122,.15)' : 'var(--acc-dim)',
-                  border: `1px solid ${aiCopied ? '#5ac87a' : 'var(--acc)'}`,
-                  color: aiCopied ? '#5ac87a' : 'var(--acc)',
-                }}>
-                {aiCopied ? '① コピーしました ✓' : '① ノートをコピーする'}
-              </button>
-
-              {/* Step 2 */}
-              <div style={{ fontSize: 11, color: 'var(--fg3)', textAlign: 'center' }}>↓ 好きなAIを開いて貼り付け（Ctrl+V）</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg3)', letterSpacing: '.06em' }}>① AIにまとめを作ってもらう</div>
               <div className="flex flex-col gap-2">
                 {[
                   { label: 'ChatGPT で開く', url: 'https://chat.openai.com', bg: 'rgba(16,163,127,.1)', border: 'rgba(16,163,127,.4)', color: '#10a37f' },
@@ -1533,6 +1524,30 @@ ${buildNoteText(activeNote)}
                   </button>
                 ))}
               </div>
+              <div style={{ fontSize: 11, color: 'var(--fg3)', lineHeight: 1.6 }}>
+                ノート内容を自動コピーしてAIを開きます。<br/>AIの画面で貼り付け（Ctrl+V）してまとめを生成してください。
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--edge)', margin: '2px 0' }} />
+
+              {/* Step 2 */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg3)', letterSpacing: '.06em' }}>② まとめ欄に貼り付ける</div>
+              <div style={{ fontSize: 12, color: 'var(--fg2)', lineHeight: 1.7, background: 'var(--acc-dim)', borderRadius: 8, padding: '10px 12px' }}>
+                AIが生成したテキストをコピーして、このアプリの<strong>「まとめ」タブ</strong>に貼り付けてください。
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--edge)', margin: '2px 0' }} />
+
+              {/* Step 3 */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg3)', letterSpacing: '.06em' }}>③ 共有リンクを発行する</div>
+              <button
+                onClick={() => { setShowAI(false); shareNote() }}
+                className="w-full py-2.5 rounded-lg text-[13px] font-bold cursor-pointer"
+                style={{ background: 'var(--acc)', color: '#fff', border: 'none' }}>
+                共有リンクを作る
+              </button>
+              <div style={{ fontSize: 11, color: 'var(--fg3)' }}>リンクを友達に送れば読み取り専用でノートを見てもらえます。</div>
+
             </div>
           </div>
         </div>
