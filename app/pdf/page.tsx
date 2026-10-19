@@ -40,24 +40,11 @@ export default function PdfHomePage() {
     if (session) loadDocuments()
   }, [session, loadDocuments])
 
-  async function handleGoogleLogin() {
-    setIsSigningIn(true)
-    setError(null)
-    const { data, error } = await supabase.auth.signInWithOAuth({
+  function handleGoogleLogin() {
+    supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/pdf/auth/callback`,
-        skipBrowserRedirect: true,
-      },
+      options: { redirectTo: `${window.location.origin}/pdf/auth/callback` },
     })
-    if (error) {
-      setError(error.message)
-      setIsSigningIn(false)
-      return
-    }
-    if (data.url) {
-      window.location.href = data.url
-    }
   }
 
   async function handleSignOut() {
