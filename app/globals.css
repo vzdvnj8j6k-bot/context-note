@@ -36,7 +36,7 @@ body {
   line-height: 1.85;
   margin-bottom: 1px;
   outline: none;
-  padding: 3px 10px;
+  padding: 3px 10px 3px 10px;
   white-space: pre-wrap;
   word-break: break-word;
   min-height: 1.85em;
@@ -49,27 +49,52 @@ body {
   font-style: italic;
   pointer-events: none;
 }
-.block-line[data-type="important"] { background: var(--c-imp-bg); border-left-color: var(--c-imp); }
-.block-line[data-type="question"]  { background: var(--c-q-bg);   border-left-color: var(--c-q); }
-.block-line[data-type="exam"]      { background: var(--c-ex-bg);  border-left-color: var(--c-ex); }
-.block-line[data-type="cause"]     { background: var(--c-ca-bg);  border-left-color: var(--c-ca); padding-left: 20px; }
-.block-line[data-type="reaction"]  { background: var(--c-rx-bg);  border-left-color: var(--c-rx); font-style: italic; }
 
+.block-line[data-type="important"] { background: var(--c-imp-bg); border-left-color: var(--c-imp); padding-left: 52px; }
+.block-line[data-type="question"]  { background: var(--c-q-bg);   border-left-color: var(--c-q);   padding-left: 52px; }
+.block-line[data-type="exam"]      { background: var(--c-ex-bg);  border-left-color: var(--c-ex);  padding-left: 52px; }
+.block-line[data-type="cause"]     { background: var(--c-ca-bg);  border-left-color: var(--c-ca);  padding-left: 52px; }
+.block-line[data-type="reaction"]  { background: var(--c-rx-bg);  border-left-color: var(--c-rx);  padding-left: 52px; font-style: italic; }
+
+/* Hide the raw prefix chars (> ? ! => ~) — they sit at the very start of the text.
+   We position the badge with a solid background over that area so the chars are covered. */
+.block-line[data-type="important"] > .block-badge,
+.block-line[data-type="question"]  > .block-badge,
+.block-line[data-type="exam"]      > .block-badge,
+.block-line[data-type="cause"]     > .block-badge,
+.block-line[data-type="reaction"]  > .block-badge {
+  position: absolute;
+  left: 3px; top: 50%; transform: translateY(-50%);
+  width: 44px;
+  text-align: center;
+  font-size: 10px; font-weight: 700;
+  font-family: 'Noto Sans JP', system-ui, sans-serif;
+  pointer-events: none;
+  border-radius: 4px;
+  padding: 2px 4px;
+  white-space: nowrap;
+  /* solid bg to cover the prefix chars that render behind it */
+}
+.block-line[data-type="normal"] .block-badge { display: none; }
+.block-line[data-type="important"] .block-badge { background: #dce7fd; border: 1px solid var(--c-imp); color: var(--c-imp); }
+.block-line[data-type="question"]  .block-badge { background: #fde8cc; border: 1px solid var(--c-q);   color: var(--c-q); }
+.block-line[data-type="exam"]      .block-badge { background: #fdd8d8; border: 1px solid var(--c-ex);  color: var(--c-ex); }
+.block-line[data-type="cause"]     .block-badge { background: #d0f2e6; border: 1px solid var(--c-ca);  color: var(--c-ca); }
+.block-line[data-type="reaction"]  .block-badge { background: #ede9ff; border: 1px solid var(--c-rx);  color: var(--c-rx); }
+
+/* Badge base — fallback for .block-line[data-type="normal"] */
 .block-badge {
   position: absolute; right: 6px; top: 4px;
-  font-size: 9px; opacity: 0.8; pointer-events: none;
+  font-size: 9px; pointer-events: none;
   font-family: 'IBM Plex Mono', monospace;
-  font-weight: 700; letter-spacing: .03em;
+  font-weight: 700;
 }
-.block-line[data-type="important"] .block-badge { color: var(--c-imp); }
-.block-line[data-type="question"]  .block-badge { color: var(--c-q); }
-.block-line[data-type="exam"]      .block-badge { color: var(--c-ex); opacity: 0.7; }
-.block-line[data-type="cause"]     .block-badge { color: var(--c-ca); left: 5px; right: auto; }
-.block-line[data-type="reaction"]  .block-badge { color: var(--c-rx); }
+
+/* Char count stays on the right */
 
 /* Character count meter */
 .char-count {
-  position: absolute; right: 32px; top: 4px;
+  position: absolute; right: 8px; top: 4px;
   font-size: 9px; font-family: 'IBM Plex Mono', monospace;
   pointer-events: none; opacity: 0; transition: opacity 0.15s, color 0.15s;
 }

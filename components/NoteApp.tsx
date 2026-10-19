@@ -15,8 +15,12 @@ const PREFIXES: Record<string, BlockType> = {
   '~ ':  'reaction',
   '- ':  'normal',
 }
+// Reverse map: type → prefix for reconstruct on save
+const TYPE_TO_PREFIX: Partial<Record<BlockType, string>> = {
+  important: '> ', question: '? ', exam: '! ', cause: '=> ', reaction: '~ ',
+}
 const BADGE: Partial<Record<BlockType, string>> = {
-  important: 'DEF', question: 'Q?', exam: '★', cause: '⇒', reaction: '～',
+  important: '重要', question: '疑問', exam: '試験', cause: '因果', reaction: '感想',
 }
 const CHAR_WARN = 50
 const CHAR_OVER = 60
@@ -61,12 +65,16 @@ function BlockEditor({
   }
 
   function readBlocks(): Block[] {
-    return getBlockEls().map(el => ({
-      id: el.dataset.id!,
-      type: (el.dataset.type as BlockType) || 'normal',
-      content: textOf(el),
-      level: parseInt(el.dataset.level ?? '0') || 0,
-    }))
+    return getBlockEls().map(el => {
+      const type = (el.dataset.type as BlockType) || 'normal'
+      const prefix = TYPE_TO_PREFIX[type] ?? ''
+      return {
+        id: el.dataset.id!,
+        type,
+        content: prefix + textOf(el),
+        level: parseInt(el.dataset.level ?? '0') || 0,
+      }
+    })
   }
 
   function textOf(el: HTMLDivElement): string {
@@ -81,14 +89,13 @@ function BlockEditor({
   }
 
   function updateType(el: HTMLDivElement) {
-    const text = textOf(el)
-    const type = detectType(text)
-    el.dataset.type = type
+    // Type is set via el.dataset.type; this just syncs the badge and char counter.
+    const type = (el.dataset.type as BlockType) || 'normal'
     const badge = el.querySelector<HTMLSpanElement>('.block-badge')
     if (badge) badge.textContent = BADGE[type] ?? ''
     const counter = el.querySelector<HTMLSpanElement>('.char-count')
     if (counter) {
-      const len = text.length
+      const len = textOf(el).length
       counter.textContent = `${len}`
       counter.dataset.warn = len >= CHAR_OVER ? 'over' : len >= CHAR_WARN ? 'warn' : 'ok'
     }
@@ -113,7 +120,10 @@ function BlockEditor({
     div.dataset.type = block.type
     div.dataset.level = String(block.level ?? 0)
     div.dataset.ph = '入力 または / でブロック種類を選ぶ'
-    div.appendChild(document.createTextNode(block.content))
+    // Strip the stored prefix so only the content text is shown
+    const storedPrefix = TYPE_TO_PREFIX[block.type] ?? ''
+    const displayText = block.content.startsWith(storedPrefix) ? block.content.slice(storedPrefix.length) : block.content
+    div.appendChild(document.createTextNode(displayText))
 
     const badge = document.createElement('span')
     badge.className = 'block-badge'
@@ -135,12 +145,13 @@ function BlockEditor({
     return div
   }
 
-  // Slash command: apply selected prefix
+  // Slash command: apply selected type (prefix used only to detect type)
   function selectSlashCmd(prefix: string) {
     if (!slashMenu) return
     const el = containerRef.current?.querySelector<HTMLDivElement>(`[data-id="${slashMenu.blockId}"]`)
     if (el) {
-      setTextOf(el, prefix)
+      el.dataset.type = detectType(prefix + 'x')
+      setTextOf(el, '')  // clear the '/' trigger char
       updateType(el)
       placeCaretEnd(el)
     }
@@ -306,7 +317,19 @@ function BlockEditor({
       setSlashMenu(null)
     }
 
-    updateType(target)
+    // If user typed a prefix (e.g. '> ', '? '), auto-convert the block type and strip the prefix
+    let detectedByPrefix = false
+    for (const [prefix, type] of Object.entries(PREFIXES)) {
+      if (text.startsWith(prefix)) {
+        target.dataset.type = type
+        setTextOf(target, text.slice(prefix.length))
+        updateType(target)
+        placeCaretEnd(target)
+        detectedByPrefix = true
+        break
+      }
+    }
+    if (!detectedByPrefix) updateType(target)
     onUpdate(readBlocks())
   }
 
@@ -744,21 +767,15 @@ ${buildNoteText(activeNote)}
       target = els[els.length - 1] || null
     }
     if (!target) {
-      updateNote({ blocks: [{ id: uid(), type: detectType(prefix), content: prefix }] })
+      // No block focused: create a new block with this type
+      updateNote({ blocks: [{ id: uid(), type: detectType(prefix + 'x'), content: prefix }] })
       return
     }
-    let text = ''
-    target.childNodes.forEach(n => { if (n.nodeType === Node.TEXT_NODE) text += n.textContent })
-    let bare = text
-    for (const p of Object.keys(PREFIXES)) {
-      if (text.startsWith(p)) { bare = text.slice(p.length); break }
-    }
-    const newText = prefix + bare
-    ;[...target.childNodes].forEach(n => { if (n.nodeType === Node.TEXT_NODE) n.remove() })
-    target.insertBefore(document.createTextNode(newText), target.firstChild)
-    target.dataset.type = detectType(newText)
+    // Change only the type; display text (already prefix-stripped) stays as-is
+    const newType = detectType(prefix + 'x')
+    target.dataset.type = newType
     const badge = target.querySelector<HTMLSpanElement>('.block-badge')
-    if (badge) badge.textContent = BADGE[detectType(newText)] ?? ''
+    if (badge) badge.textContent = BADGE[newType] ?? ''
     target.focus()
     const range = document.createRange()
     range.selectNodeContents(target)
