@@ -640,19 +640,49 @@ export default function NoteApp() {
         </div>
       </header>
 
-      {/* Legend */}
+      {/* Legend — clickable to change the focused block's type */}
       <div style={{ background: 'var(--surf)', borderBottom: '1px solid var(--edge)', fontFamily: "'IBM Plex Mono', monospace", color: 'var(--fg3)' }}
-        className="flex gap-3 flex-shrink-0 px-4 py-1 overflow-x-auto whitespace-nowrap text-[10px]">
-        <div className="flex gap-3 flex-1">
-          <span className="flex items-center gap-1"><span style={{ background: 'var(--c-imp)', width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>&gt; </code>重要</span>
-          <span className="flex items-center gap-1"><span style={{ background: 'var(--c-q)',   width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>? </code>疑問</span>
-          <span className="flex items-center gap-1"><span style={{ background: 'var(--c-ex)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>! </code>試験</span>
-          <span className="flex items-center gap-1"><span style={{ background: 'var(--c-ca)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>=&gt; </code>因果</span>
-          <span className="flex items-center gap-1"><span style={{ background: 'var(--c-rx)',  width: 3, height: 12, borderRadius: 1, display: 'inline-block' }} /><code>~ </code>感想</span>
-          <span style={{ marginLeft: 'auto', color: 'var(--fg3)', fontSize: 9 }}>
-            <kbd style={{ background: 'var(--edge)', borderRadius: 3, padding: '1px 4px', fontSize: 9 }}>/</kbd> でブロック種類を選ぶ
-          </span>
-        </div>
+        className="flex gap-1 flex-shrink-0 px-3 py-1 overflow-x-auto whitespace-nowrap text-[10px]">
+        {([
+          ['> ',  '重要', 'var(--c-imp)', 'var(--c-imp-bg)'],
+          ['? ',  '疑問', 'var(--c-q)',   'var(--c-q-bg)'],
+          ['! ',  '試験', 'var(--c-ex)',  'var(--c-ex-bg)'],
+          ['=> ', '因果', 'var(--c-ca)',  'var(--c-ca-bg)'],
+          ['~ ',  '感想', 'var(--c-rx)',  'var(--c-rx-bg)'],
+          ['- ',  'メモ', 'var(--fg3)',   'transparent'],
+        ] as [string, string, string, string][]).map(([prefix, label, color, bg]) => (
+          <button
+            key={prefix}
+            onClick={() => insertPrefix(prefix)}
+            title={`${label}ブロックに変更 (${prefix.trim()})`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: 'transparent', border: '1px solid transparent',
+              borderRadius: 4, padding: '2px 7px', cursor: 'pointer',
+              fontFamily: 'IBM Plex Mono, monospace', fontSize: 10,
+              color: 'var(--fg3)', transition: 'all .12s',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement
+              el.style.background = bg
+              el.style.borderColor = color
+              el.style.color = color
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement
+              el.style.background = 'transparent'
+              el.style.borderColor = 'transparent'
+              el.style.color = 'var(--fg3)'
+            }}
+          >
+            <span style={{ background: color, width: 3, height: 10, borderRadius: 1, display: 'inline-block', flexShrink: 0 }} />
+            <code style={{ color: 'inherit' }}>{prefix.trim()}</code>
+            <span>{label}</span>
+          </button>
+        ))}
+        <span style={{ marginLeft: 'auto', color: 'var(--fg3)', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}>
+          <kbd style={{ background: 'var(--edge)', borderRadius: 3, padding: '1px 4px', fontSize: 9 }}>/</kbd> でも選べる
+        </span>
       </div>
 
       {/* Mobile tabs */}
