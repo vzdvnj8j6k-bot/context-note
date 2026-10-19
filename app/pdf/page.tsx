@@ -41,10 +41,12 @@ export default function PdfHomePage() {
 
   async function handleGoogleLogin() {
     setIsSigningIn(true)
+    setError(null)
     try {
       await signInWithGoogle()
     } catch (e) {
       console.error('Login error:', e)
+      setError(e instanceof Error ? e.message : String(e))
       setIsSigningIn(false)
     }
   }
@@ -118,6 +120,7 @@ export default function PdfHomePage() {
           <h1 className="text-2xl font-bold text-gray-800 mb-2">PDF Note</h1>
           <p className="text-gray-500 text-sm mb-4">PDFに自由に書き込み・共有・印刷</p>
           <Link href="/" className="block mb-6 text-sm text-blue-600 hover:underline">← ノートアプリへ戻る</Link>
+          {error && <p className="mb-4 text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
           <button
             onClick={handleGoogleLogin}
             disabled={isSigningIn}
