@@ -418,8 +418,7 @@ export default function NoteApp() {
   const [authLoading, setAuthLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [showAI, setShowAI] = useState(false)
-  const [aiResult, setAiResult] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
+  const [aiCopied, setAiCopied] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -658,28 +657,31 @@ export default function NoteApp() {
     return lines.join('\n')
   }
 
-  async function runAIExplain() {
+  function copyForAI() {
     if (!activeNote) return
-    setAiLoading(true)
-    setAiResult('')
-    try {
-      const res = await fetch('/api/explain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ noteText: buildNoteText(activeNote) }),
-      })
-      if (!res.ok) { setAiResult('エラーが発生しました。APIキーを確認してください。'); setAiLoading(false); return }
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let text = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        text += decoder.decode(value, { stream: true })
-        setAiResult(text)
-      }
-    } catch { setAiResult('ネットワークエラーが発生しました。') }
-    setAiLoading(false)
+    const prompt = `以下の授業ノートを読んで、分かりやすく解説してください。
+
+${buildNoteText(activeNote)}
+
+---
+お願いしたいこと：
+1. このノートの一番大事なポイントを3〜5つ、分かりやすく整理してください
+2. 難しい言葉や概念があれば、身近な例を使って説明してください
+3. 試験に出そうな問いと答えを2〜3つ作ってください`
+
+    navigator.clipboard.writeText(prompt).then(() => {
+      setAiCopied(true)
+      setTimeout(() => setAiCopied(false), 4000)
+    }).catch(() => {
+      const ta = document.createElement('textarea')
+      ta.value = prompt
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setAiCopied(true)
+      setTimeout(() => setAiCopied(false), 4000)
+    })
   }
 
   // ── Share ─────────────────────────────────────────────────────────────────
@@ -1127,34 +1129,48 @@ export default function NoteApp() {
       {showAI && (
         <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center" style={{ background: 'rgba(0,0,0,.72)' }}
           onClick={() => setShowAI(false)}>
-          <div className="rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+          <div className="rounded-xl w-full max-w-sm flex flex-col overflow-hidden"
             style={{ background: 'var(--surf)', border: '1px solid var(--edge)' }}
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--edge)' }}>
-              <span className="font-bold text-[14px]">AI解説</span>
+              <span className="font-bold text-[14px]">AIに解説してもらう</span>
               <button onClick={() => setShowAI(false)} style={{ background: 'transparent', border: 'none', color: 'var(--fg3)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
             </div>
+            <div className="p-5 flex flex-col gap-4">
+              <div style={{ fontSize: 13, color: 'var(--fg2)', lineHeight: 1.8 }}>
+                ノートの内容をコピーして、お使いのAIに貼り付けてください。
+              </div>
 
-            <div className="flex flex-col flex-1 overflow-hidden min-h-0 gap-3 p-4">
-              {!aiResult && !aiLoading && (
-                <div style={{ fontSize: 13, color: 'var(--fg2)', textAlign: 'center', padding: '20px 0' }}>
-                  このノートをClaudeが解説します
-                </div>
-              )}
-              {(aiResult || aiLoading) && (
-                <div className="flex-1 overflow-y-auto rounded-md p-4 text-[13px] leading-[1.8]"
-                  style={{ background: 'var(--bg)', border: '1px solid var(--edge)', fontFamily: 'inherit', color: 'var(--fg)', whiteSpace: 'pre-wrap' }}>
-                  {aiResult}
-                  {aiLoading && <span style={{ opacity: 0.5 }}>▋</span>}
-                </div>
-              )}
-              <div className="flex justify-end flex-shrink-0">
-                <button
-                  className="px-5 py-2 rounded-md text-[13px] cursor-pointer font-bold"
-                  style={{ background: aiLoading ? 'var(--edge)' : 'var(--acc-dim)', border: '1px solid var(--acc)', color: aiLoading ? 'var(--fg3)' : 'var(--acc)' }}
-                  disabled={aiLoading}
-                  onClick={runAIExplain}
-                >{aiLoading ? '解説中...' : aiResult ? '再解説する' : '解説してもらう'}</button>
+              {/* Step 1 */}
+              <button
+                onClick={copyForAI}
+                className="w-full py-3 rounded-lg text-[14px] font-bold cursor-pointer transition-colors"
+                style={{
+                  background: aiCopied ? 'rgba(90,200,122,.15)' : 'var(--acc-dim)',
+                  border: `1px solid ${aiCopied ? '#5ac87a' : 'var(--acc)'}`,
+                  color: aiCopied ? '#5ac87a' : 'var(--acc)',
+                }}>
+                {aiCopied ? '① コピーしました ✓' : '① ノートをコピーする'}
+              </button>
+
+              {/* Step 2 */}
+              <div style={{ fontSize: 11, color: 'var(--fg3)', textAlign: 'center' }}>↓ 好きなAIを開いて貼り付け（Ctrl+V）</div>
+              <div className="flex flex-col gap-2">
+                <a href="https://chat.openai.com" target="_blank" rel="noreferrer"
+                  className="py-2.5 rounded-lg text-[13px] font-bold text-center cursor-pointer"
+                  style={{ background: 'rgba(16,163,127,.1)', border: '1px solid rgba(16,163,127,.4)', color: '#10a37f', textDecoration: 'none' }}>
+                  ChatGPT で開く
+                </a>
+                <a href="https://gemini.google.com" target="_blank" rel="noreferrer"
+                  className="py-2.5 rounded-lg text-[13px] font-bold text-center cursor-pointer"
+                  style={{ background: 'rgba(66,133,244,.1)', border: '1px solid rgba(66,133,244,.4)', color: '#4285f4', textDecoration: 'none' }}>
+                  Gemini で開く
+                </a>
+                <a href="https://claude.ai" target="_blank" rel="noreferrer"
+                  className="py-2.5 rounded-lg text-[13px] font-bold text-center cursor-pointer"
+                  style={{ background: 'rgba(217,119,6,.08)', border: '1px solid rgba(217,119,6,.3)', color: '#f59e0b', textDecoration: 'none' }}>
+                  Claude で開く
+                </a>
               </div>
             </div>
           </div>
