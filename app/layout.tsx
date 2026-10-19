@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'ContextNote',
-  description: 'コーネル式セマンティックブロック講義ノートアプリ',
+  title: 'Classnotes',
+  description: 'コーネル式ノートアプリ — キュー・ノート・まとめで授業を構造化',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

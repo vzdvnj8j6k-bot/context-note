@@ -871,7 +871,7 @@ ${buildNoteText(activeNote)}
         <h1 style={{
           color: '#fff', fontSize: 30, fontWeight: 800, margin: '10px 0 6px',
           fontFamily: 'Noto Sans JP, sans-serif', letterSpacing: '-.01em',
-        }}>コーネルノート</h1>
+        }}>Classnotes</h1>
         <p style={{
           color: 'rgba(255,255,255,.4)', fontSize: 13, margin: '0 0 36px',
           fontFamily: 'Noto Sans JP, sans-serif', textAlign: 'center', lineHeight: 1.6,
