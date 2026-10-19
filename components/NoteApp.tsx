@@ -470,6 +470,7 @@ export default function NoteApp() {
   const [aiCopied, setAiCopied] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userRef = useRef<User | null>(null)
   const cueRef = useRef<HTMLDivElement>(null)
@@ -492,6 +493,19 @@ export default function NoteApp() {
       if (u) { setShowWelcome(false); setAuthMenuOpen(false) }
     })
     return () => subscription.unsubscribe()
+  }, [])
+
+  // ── Keyboard height tracking (mobile) ────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+    const vv = window.visualViewport
+    const handler = () => {
+      const kbh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardHeight(kbh)
+    }
+    vv.addEventListener('resize', handler)
+    vv.addEventListener('scroll', handler)
+    return () => { vv.removeEventListener('resize', handler); vv.removeEventListener('scroll', handler) }
   }, [])
 
   // ── Load ──────────────────────────────────────────────────────────────────
@@ -806,15 +820,31 @@ ${buildNoteText(activeNote)}
       target = els[els.length - 1] || null
     }
     if (!target) {
-      // No block focused: create a new block with this type
-      updateNote({ blocks: [{ id: uid(), type: detectType(prefix + 'x'), content: prefix }] })
+      // No blocks at all: append one with the requested type
+      if (activeNote) {
+        const newType = detectType(prefix + 'x')
+        const newPrefix = TYPE_TO_PREFIX[newType] ?? prefix
+        updateNote({ blocks: [...activeNote.blocks, { id: uid(), type: newType, content: newPrefix }] })
+      }
       return
     }
-    // Change only the type; display text (already prefix-stripped) stays as-is
     const newType = detectType(prefix + 'x')
+    // Update DOM immediately
     target.dataset.type = newType
     const badge = target.querySelector<HTMLSpanElement>('.block-badge')
     if (badge) badge.textContent = BADGE[newType] ?? ''
+    // Persist type change to React state (prevents type reverting on re-render)
+    const blockId = target.dataset.id
+    if (blockId && activeNote) {
+      const updatedBlocks = activeNote.blocks.map(b => {
+        if (b.id !== blockId) return b
+        const oldPrefix = TYPE_TO_PREFIX[b.type] ?? ''
+        const rawText = b.content.startsWith(oldPrefix) ? b.content.slice(oldPrefix.length) : b.content
+        const newPrefix2 = TYPE_TO_PREFIX[newType] ?? ''
+        return { ...b, type: newType, content: newPrefix2 + rawText }
+      })
+      updateNote({ blocks: updatedBlocks })
+    }
     target.focus()
     const range = document.createRange()
     range.selectNodeContents(target)
@@ -1333,23 +1363,8 @@ ${buildNoteText(activeNote)}
                 tabNext={() => sumRef.current?.focus()}
                 tabPrev={() => cueRef.current?.focus()}
               />
-              {/* Mobile action bar */}
-              <div className="hidden max-[700px]:flex gap-0 flex-shrink-0"
-                style={{ background: 'var(--deck)', borderTop: '1px solid rgba(255,255,255,.08)' }}>
-                {([
-                  ['> ', '重要', 'var(--c-imp)', 'rgba(47,82,212,.15)'],
-                  ['? ', '疑問', 'var(--c-q)', 'rgba(192,104,0,.12)'],
-                  ['! ', '試験', 'var(--c-ex)', 'rgba(176,24,24,.12)'],
-                  ['=> ', '因果', 'var(--c-ca)', 'rgba(6,132,90,.12)'],
-                  ['~ ', '感想', 'var(--c-rx)', 'rgba(124,58,237,.12)'],
-                  ['- ', 'メモ', 'rgba(255,255,255,.5)', 'transparent'],
-                ] as [string, string, string, string][]).map(([p, label, col, bg]) => (
-                  <button key={p} onClick={() => insertPrefix(p)}
-                    style={{ flex: 1, background: bg, border: 'none', borderRight: '1px solid rgba(255,255,255,.06)', color: col, fontFamily: 'Noto Sans JP, sans-serif', fontSize: 11, padding: '10px 2px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <span style={{ fontWeight: 700 }}>{label}</span>
-                  </button>
-                ))}
-              </div>
+              {/* Spacer so content doesn't hide under the fixed mobile action bar */}
+              <div className="hidden max-[700px]:block flex-shrink-0" style={{ height: 44 }} />
             </div>
 
           </div>
@@ -1376,6 +1391,36 @@ ${buildNoteText(activeNote)}
           </div>
         </div>
       </div>
+
+      {/* Mobile fixed action bar — floats above keyboard */}
+      {mobPanel === 'notes' && (
+        <div className="hidden max-[700px]:flex gap-0"
+          style={{
+            position: 'fixed',
+            bottom: keyboardHeight,
+            left: 0, right: 0,
+            background: 'var(--deck)',
+            borderTop: '1px solid rgba(255,255,255,.08)',
+            zIndex: 20,
+            height: 44,
+          }}>
+          {([
+            ['> ', '重要', 'var(--c-imp)', 'rgba(47,82,212,.15)'],
+            ['? ', '疑問', 'var(--c-q)', 'rgba(192,104,0,.12)'],
+            ['! ', '試験', 'var(--c-ex)', 'rgba(176,24,24,.12)'],
+            ['=> ', '因果', 'var(--c-ca)', 'rgba(6,132,90,.12)'],
+            ['~ ', '感想', 'var(--c-rx)', 'rgba(124,58,237,.12)'],
+            ['- ', 'メモ', 'rgba(255,255,255,.5)', 'transparent'],
+          ] as [string, string, string, string][]).map(([p, label, col, bg]) => (
+            <button key={p}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => insertPrefix(p)}
+              style={{ flex: 1, background: bg, border: 'none', borderRight: '1px solid rgba(255,255,255,.06)', color: col, fontFamily: 'Noto Sans JP, sans-serif', fontSize: 11, padding: '10px 2px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+              <span style={{ fontWeight: 700 }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Status bar */}
       <div className="max-[700px]:hidden flex items-center gap-3 flex-shrink-0 px-4 py-1 overflow-x-auto whitespace-nowrap"
