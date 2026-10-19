@@ -331,9 +331,11 @@ function ShareReader({
   async function handleDownload() {
     if (!pdfRef.current) return
     try {
-      const { jsPDF } = await import('jspdf')
+      const jspdfModule = await import('jspdf')
+      const jsPDF = jspdfModule.jsPDF ?? (jspdfModule as unknown as { default: { new(...args: unknown[]): unknown } }).default
       const total = pdfRef.current.numPages
-      let pdf: InstanceType<typeof jsPDF> | null = null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let pdf: any = null
       for (let p = 1; p <= total; p++) {
         const page = await pdfRef.current.getPage(p)
         const viewport = page.getViewport({ scale: 2 })

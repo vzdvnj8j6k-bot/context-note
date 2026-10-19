@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import Toolbar from '@/components/pdf/Toolbar'
 import { EraserMark, PageAnnotations, Point, Stroke, TextAnnotation, Tool } from '@/types/pdf'
 import { getAllAnnotations, saveAnnotations, updateDocumentPages } from '@/lib/pdf-db'
-import { getSupabaseClient } from '@/lib/pdf-supabase'
+import { getPdfSupabaseClient } from '@/lib/pdf-supabase'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 let pdfjsLib: typeof import('pdfjs-dist') | null = null
@@ -241,9 +241,9 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
     if (readonly) return
     const sb = getPdfSupabaseClient()
     const channel = sb.channel(`doc-${documentId}`, { config: { presence: { key: clientId.current } } })
-      .on('broadcast', { event: 'annotation-update' }, ({ payload }) => {
+      .on('broadcast', { event: 'annotation-update' }, ({ payload }: { payload: { clientId: string; pageNumber: number; data: PageAnnotations } }) => {
         if (payload.clientId === clientId.current) return
-        const { pageNumber, data } = payload as { pageNumber: number; data: PageAnnotations; clientId: string }
+        const { pageNumber, data } = payload
         setAnnotations(prev => { const next = new Map(prev); next.set(pageNumber, data); return next })
         // Immediately redraw affected page's annotation layer
         const canvas = annotCanvasRefs.current[pageNumber - 1]
@@ -256,7 +256,7 @@ export default function PDFAnnotator({ pdfUrl, documentId, readonly = false, ini
         const state = channel.presenceState()
         setOnlineCount(Object.keys(state).length)
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') await channel.track({ online_at: new Date().toISOString() })
       })
     channelRef.current = channel
