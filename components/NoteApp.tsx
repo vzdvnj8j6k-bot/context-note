@@ -548,9 +548,18 @@ export default function NoteApp() {
         if (e.key === 'n' || e.key === 'N') { e.preventDefault(); newNote(); return }
         if (e.key === 'b' || e.key === 'B') { e.preventDefault(); setSidebarOpen(p => !p); return }
         if (e.key === '/') { e.preventDefault(); setShowHelp(p => !p); return }
-        if (e.key === '1') { e.preventDefault(); cueRef.current?.focus(); return }
-        if (e.key === '2') { e.preventDefault(); document.querySelector<HTMLElement>('.block-line')?.focus(); return }
-        if (e.key === '3') { e.preventDefault(); sumRef.current?.focus(); return }
+        if (e.key === '1' && !e.shiftKey) { e.preventDefault(); cueRef.current?.focus(); return }
+        if (e.key === '2' && !e.shiftKey) { e.preventDefault(); document.querySelector<HTMLElement>('.block-line')?.focus(); return }
+        if (e.key === '3' && !e.shiftKey) { e.preventDefault(); sumRef.current?.focus(); return }
+        // Ctrl+Shift+1-6: change focused block type
+        if (e.shiftKey) {
+          const numIdx = ['1','2','3','4','5','6'].indexOf(e.key)
+          if (numIdx >= 0) {
+            e.preventDefault()
+            insertPrefix(SLASH_CMDS[numIdx].prefix)
+            return
+          }
+        }
       }
       if (e.key === 'Escape') {
         if (showHelp)    { setShowHelp(false); return }
@@ -654,28 +663,18 @@ export default function NoteApp() {
           <button
             key={prefix}
             onClick={() => insertPrefix(prefix)}
-            title={`${label}ブロックに変更 (${prefix.trim()})`}
+            title={`${label}ブロックに変更 — Ctrl+Shift+${['> ','? ','! ','=> ','~ ','- '].indexOf(prefix)+1}`}
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
-              background: 'transparent', border: '1px solid transparent',
+              background: bg, border: `1px solid ${color}`,
               borderRadius: 4, padding: '2px 7px', cursor: 'pointer',
               fontFamily: 'IBM Plex Mono, monospace', fontSize: 10,
-              color: 'var(--fg3)', transition: 'all .12s',
+              color: color, transition: 'opacity .12s',
+              opacity: 0.7,
             }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement
-              el.style.background = bg
-              el.style.borderColor = color
-              el.style.color = color
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement
-              el.style.background = 'transparent'
-              el.style.borderColor = 'transparent'
-              el.style.color = 'var(--fg3)'
-            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
           >
-            <span style={{ background: color, width: 3, height: 10, borderRadius: 1, display: 'inline-block', flexShrink: 0 }} />
             <code style={{ color: 'inherit' }}>{prefix.trim()}</code>
             <span>{label}</span>
           </button>
@@ -744,12 +743,34 @@ export default function NoteApp() {
               <div className="flex items-center justify-between flex-shrink-0 px-3 py-1.5"
                 style={{ borderBottom: '1px solid var(--edge)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--fg3)' }}>
                 <span>キュー・問い</span>
-                <span className="pact text-[9px] px-1 rounded border opacity-0 transition-opacity"
-                  style={{ background: 'var(--acc-dim)', borderColor: 'var(--acc)', color: 'var(--acc)' }}>ACTIVE</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const topic = activeNote.topic || 'このテーマ'
+                      const tpl = [
+                        `【${topic}】`,
+                        '',
+                        '□ 定義・概念は何か？',
+                        '□ なぜ・どのように起きるのか？',
+                        '□ 具体的な例は？',
+                        '□ 他の概念・以前の内容との違いは？',
+                        '□ 試験で問われそうな点は？',
+                        '',
+                        '→ まとめ：',
+                      ].join('\n')
+                      updateNote({ cue: activeNote.cue ? activeNote.cue + '\n\n' + tpl : tpl })
+                      setTimeout(() => cueRef.current?.focus(), 0)
+                    }}
+                    title="コーネル式質問テンプレートを挿入"
+                    style={{ background: 'var(--acc-dim)', border: '1px solid var(--acc)', borderRadius: 4, color: 'var(--acc)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 9, padding: '1px 6px', cursor: 'pointer', letterSpacing: '.04em' }}
+                  >+ テンプレ</button>
+                  <span className="pact text-[9px] px-1 rounded border opacity-0 transition-opacity"
+                    style={{ background: 'var(--acc-dim)', borderColor: 'var(--acc)', color: 'var(--acc)' }}>ACTIVE</span>
+                </div>
               </div>
               <textarea ref={cueRef} className="flex-1 w-full resize-none outline-none p-3 text-[13px] leading-[1.85]"
                 style={{ background: 'transparent', border: 'none', fontFamily: 'IBM Plex Mono, monospace', color: 'var(--fg)', caretColor: 'var(--acc)' }}
-                placeholder={'講義後に記入\n\nキーワードや問いを書く\n例：なぜ〜？　〜とは？\n\nTab で「ノート」へ'}
+                placeholder={'講義後に記入\n\n「+ テンプレ」でコーネル式の\n質問テンプレートを挿入\n\nTab で「ノート」へ'}
                 value={activeNote.cue}
                 onChange={e => updateNote({ cue: e.target.value })}
                 onKeyDown={e => {
@@ -868,7 +889,8 @@ export default function NoteApp() {
             {[
               ['パネル移動', [['Ctrl+1', 'キュー欄'], ['Ctrl+2', 'ノート欄'], ['Ctrl+3', 'まとめ欄'], ['空行でTab', '次のパネルへ移動'], ['空行でShift+Tab', '前のパネルへ移動']]],
               ['アプリ操作', [['Ctrl+R', '復習モード（重要ブロックをマスク）'], ['Ctrl+S', '手動保存'], ['Ctrl+N', '新規ノート'], ['Ctrl+B', 'サイドバー開閉'], ['Ctrl+/', 'ヘルプ'], ['Escape', '閉じる/終了']]],
-              ['ブロック入力・構造', [['/', '行頭で入力 → ブロック種類ピッカー'], ['1〜6キー', 'ピッカー開中に種類を素早く選ぶ'], ['Tab', 'ブロックをインデント（段落下げ）'], ['Shift+Tab', 'インデントを戻す'], ['> テキスト', '重要・定義（復習マスク対象）'], ['? テキスト', '疑問点'], ['! テキスト', '試験に出る'], ['=> テキスト', '因果関係'], ['~ テキスト', '感想・リアクション']]],
+              ['ブロック種類の変更', [['凡例ボタンをクリック', '現在のブロックの種類を変更'], ['Ctrl+Shift+1', '重要・定義に変更'], ['Ctrl+Shift+2', '疑問点に変更'], ['Ctrl+Shift+3', '試験ポイントに変更'], ['Ctrl+Shift+4', '因果関係に変更'], ['Ctrl+Shift+5', '感想・リアクションに変更'], ['Ctrl+Shift+6', '通常メモに変更']]],
+              ['ブロック入力・構造', [['/', '行頭で入力 → ブロック種類ピッカー'], ['1〜6キー', 'ピッカー開中に種類を素早く選ぶ'], ['Tab', 'ブロックをインデント（段落下げ）'], ['Shift+Tab', 'インデントを戻す'], ['+ テンプレ', 'キュー欄にコーネル式質問テンプレを挿入']]],
             ].map(([section, rows]) => (
               <div key={section as string} className="mb-4">
                 <div style={{ color: 'var(--fg3)', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>{section as string}</div>
